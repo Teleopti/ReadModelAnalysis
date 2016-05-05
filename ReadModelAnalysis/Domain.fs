@@ -10,6 +10,23 @@ type DomainClass = DomainClass of name: string * path: string
 type EventHandlerClass = EventHandlerClass of name: string * path: string * event: EventClass
 type WebClass = WebClass of name: string * path: string
 
+type Q private () =
+    static member name (EventClass name') = name' 
+    static member name (ReadModel name') = name'
+    static member name (NhibQuery (name', _)) = name'
+    static member name (StoredProcedure (name', _)) = name'
+    static member name (InfraClass (name', _)) = name'
+    static member name (DomainClass (name', _)) = name'
+    static member name (EventHandlerClass (name', _, _)) = name'
+    static member name (WebClass (name', _)) = name'
+    static member path (NhibQuery (_, path')) = path'
+    static member path (StoredProcedure (_, path')) = path'
+    static member path (InfraClass (_, path')) = path'
+    static member path (DomainClass (_, path')) = path'
+    static member path (EventHandlerClass (_, path', _)) = path'
+    static member path (WebClass (_, path')) = path'
+    static member event (EventHandlerClass (_, _, event')) = event'
+
 type LocInfo = { hostLoc : string; targetLocs : string list }
 type UseInfo<'S, 'T> = { target: 'S; host: 'T; locs: LocInfo list } 
 type EpubInfo<'S> = { event: EventClass; host: 'S; locs: LocInfo list  }
