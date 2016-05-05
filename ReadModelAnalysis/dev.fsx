@@ -1,13 +1,15 @@
 ﻿#load "IO.fs"
 #load "Domain.fs"
 #load "Config.fs"
-#load "ContentDigest.fs"
+#load "CodeDigest.fs"
+#load "AssemblyDigest.fs"
 #load "Discover.fs"
 
 open IO
 open Domain
 open Config
-open ContentDigest
+open CodeDigest
+open AssemblyDigest
 open Discover
 
 let rm1 = ReadModel "rm1"
@@ -114,3 +116,27 @@ let testDiscoverNqUsedInIc =
             discoverNhibMapping configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat                 
         [ for ic in allIcs do for nq in allNhibQueries do yield (nq, ic) ]
         |> List.choose (fun (nq, ic) -> discoverNqUsedInIc nq ic)  
+
+let testDiscoverIcUsedInDc =
+    fun _ ->
+        let ic = InfraClass ("PersonAssignmentRepository", @"C:\Teleopti\Infrastructure\Repositories\PersonAssignmentRepository.cs")
+        let allDcs =
+            discoverDomainClass configValues  (discoverClassInFile DomainClass >> Some) |> List.concat 
+        allDcs
+        |> List.choose (fun dc -> discoverIcUsedInDc ic dc)
+
+let testDiscoverIcUsedInIc =
+    fun _ ->
+        let ic = InfraClass ("AbsenceRequestUpdater", @"C:\Teleopti\Infrastructure\Absence\AbsenceRequestUpdater.cs")
+        let allIcs =
+            discoverInfraClass configValues  (discoverClassInFile InfraClass >> Some) |> List.concat 
+        allIcs
+        |> List.choose (fun dc -> discoverIcUsedInIc ic dc)
+
+let testDiscoverDcUsedInDc =
+    fun _ ->
+        let dc = DomainClass ("CreateOrUpdateSkillDays", @"C:\Teleopti\Domain\Outbound\CreateOrUpdateSkillDays.cs")
+        let allDcs =
+            discoverDomainClass configValues  (discoverClassInFile DomainClass >> Some) |> List.concat 
+        allDcs
+        |> List.choose (fun dc' -> discoverDcUsedInDc dc dc')

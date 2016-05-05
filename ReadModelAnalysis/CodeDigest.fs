@@ -1,4 +1,4 @@
-﻿module ContentDigest
+﻿module CodeDigest
 
 open System
 
@@ -30,9 +30,36 @@ let (|ClassDefinitionPattern|_|) line =
     let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
     if matched.Success then Some(matched.Groups.["className"].Value) else None
 
+let (|BlockStartPattern|_|) line = 
+    let pattern = @"{\s*$"
+    let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
+    if matched.Success then Some(line) else None
+
 let (|MethodDefinitionPattern|_|) line = 
     let pattern = @"(?:(public|protected|private|static|virtual|override)\s+)+(?<returnType>\w+(?:<\w+>)?)\s+(?<methodName>\w+)\s*\("
     let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
     if matched.Success then Some(matched.Groups.["methodName"].Value) else None
+
+let (|InterfaceOrClassInstancePattern|_|) inames line = 
+    let wrapped = "(" + String.Join("|", inames |> Seq.map (fun x -> Regex.Escape(x))) + ")"
+    let pattern = @"^\s*(?:(public|protected|private|readonly|static)\s+)+" + wrapped + @"\s+(?<instanceName>\w+)\b\s*;"
+    let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
+    if matched.Success then Some(matched.Groups.["instanceName"].Value) else None
+
+let (|InstanceMethodInvocation|_|) instanceName line = 
+    let pattern = @"\b" + Regex.Escape(instanceName ) + @"\.(?<methodName>\w+)"  + @"\b\s*\("
+    let matched = Regex.Match(line, pattern)
+    if matched.Success then Some(matched.Groups.["methodName"].Value) else None
+
+let (|NamespacePattern|_|) line = 
+    let pattern = @"^namespace\s+(?<namespace>[\w.]+)\s*$"
+    let matched = Regex.Match(line, pattern)
+    if matched.Success then Some(matched.Groups.["namespace"].Value) else None
+
+let extractInterfacesFromString input =
+    let pattern = @"(?<=\s)I[\w]+(<.+>)?";
+    let matches = Regex.Matches(input, pattern);
+    matches |> Seq.cast<Match> |> Seq.toList |> List.map (fun m -> m.Value)
+
 
     

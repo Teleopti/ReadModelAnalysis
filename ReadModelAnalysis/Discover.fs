@@ -30,7 +30,16 @@ let discoverDomainClass (configValues : ConfigValues) (present : DiscoveryPresen
     Dir'.toDir'(configValues.pathToDomainClasses).getFiles(isClassFile)
     |> List.choose present
 
-open ContentDigest
+let discoverWebClass (configValues : ConfigValues) (present : DiscoveryPresentation<'T>) : 'T list =
+    let isClassFile (file : File') = 
+        file.Path.EndsWith(".cs", System.StringComparison.OrdinalIgnoreCase)
+    Dir'.toDir'(configValues.pathToWebClasses).getFiles(isClassFile)
+    |> List.choose present
+
+// open AssemblyDigest
+// let discoverEventHandlingClass  (configValues : ConfigValues) (present : DiscoveryPresentation<'T>) : 'T list =
+
+open CodeDigest
 
 let _transformLocs (locs: List<string*string>) : LocInfo list =
     locs
@@ -208,3 +217,183 @@ let discoverNqUsedInIc (nq : NhibQuery) (ic: InfraClass) =
     match locs' with
     | [] -> None
     | _ -> NqUsedInIc { target = nq; host = ic; locs = _transformLocs locs'} |> Some
+
+let discoverClassInterfacesForClassFile (className: string) (file : File') : string list =
+    let lines = file.getLines()
+    let classDefinitionIndex = lines |> List.findIndex ( function | ClassDefinitionPattern className' -> className = className' | _ -> false )
+    let (_ , classDefinitionLines) = lines |> List.splitAt classDefinitionIndex              
+    let rec extractClassDefinitionStatement lines classDefinitionStatement = 
+        match lines with
+        | [] -> ""
+        | line :: lines' ->
+            match line with          
+            | BlockStartPattern _ -> classDefinitionStatement + line               
+            | _ ->  extractClassDefinitionStatement lines' (classDefinitionStatement + line)                      
+    let classDefinitionStatement = extractClassDefinitionStatement classDefinitionLines ""
+    extractInterfacesFromString classDefinitionStatement
+   
+let discoverIcUsedInIc (icTarget : InfraClass) (icHost: InfraClass) =
+    if (icTarget = icHost)
+    then None
+    else 
+        let (InfraClass (icTargetName, icTargetPath)) = icTarget
+        let (InfraClass (icHostName, icHostPath)) = icHost
+        let iocTypes = icTargetName :: (discoverClassInterfacesForClassFile icTargetName (File'.toFile' icTargetPath)) 
+        let lines = File'.toFile'(icHostPath : string).getLines() 
+        let mutable locs' : List<string * string> = []
+        let mutable inClassBody = false
+        let mutable instanceName = "DummyNonExistentInstance"
+        let mutable currentMethod = ""
+        lines |> List.iter ( 
+            function    
+            | ClassDefinitionPattern className -> inClassBody <- className = icHostName       
+            | MethodDefinitionPattern methodName ->
+                if (inClassBody)
+                then currentMethod <- methodName
+            | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
+                if (inClassBody)
+                then instanceName <- instanceName' 
+            | InstanceMethodInvocation instanceName invocationName ->
+                if (inClassBody)
+                then locs' <- (currentMethod, invocationName) :: locs'           
+            | _ -> ())   
+        match locs' with
+        | [] -> None
+        | _ -> IcUsedInIc { target = icTarget; host = icHost; locs = _transformLocs locs'} |> Some
+
+let discoverIcUsedInDc (ic : InfraClass) (dc: DomainClass) =   
+    let (InfraClass (icName, icPath)) = ic
+    let (DomainClass (dcName, dcPath)) = dc
+    let iocTypes = icName :: (discoverClassInterfacesForClassFile icName (File'.toFile' icPath))    
+    let lines = File'.toFile'(dcPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable instanceName = "DummyNonExistentInstance"
+    let mutable currentMethod = ""
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = dcName       
+        | MethodDefinitionPattern methodName ->
+            if (inClassBody)
+            then currentMethod <- methodName
+        | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
+            if (inClassBody)
+            then instanceName <- instanceName' 
+        | InstanceMethodInvocation instanceName invocationName ->
+            if (inClassBody)
+            then locs' <- (currentMethod, invocationName) :: locs'           
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> IcUsedInDc { target = ic; host = dc; locs = _transformLocs locs'} |> Some
+
+let discoverDcUsedInDc (dcTarget : DomainClass) (dcHost: DomainClass) =
+    if (dcTarget = dcHost)
+    then None
+    else 
+        let (DomainClass (dcTargetName, dcTargetPath)) = dcTarget
+        let (DomainClass (dcHostName, dcHostPath)) = dcHost
+        let iocTypes = dcTargetName :: (discoverClassInterfacesForClassFile dcTargetName (File'.toFile' dcTargetPath)) 
+        let lines = File'.toFile'(dcHostPath : string).getLines() 
+        let mutable locs' : List<string * string> = []
+        let mutable inClassBody = false
+        let mutable instanceName = "DummyNonExistentInstance"
+        let mutable currentMethod = ""
+        lines |> List.iter ( 
+            function    
+            | ClassDefinitionPattern className -> inClassBody <- className = dcHostName       
+            | MethodDefinitionPattern methodName ->
+                if (inClassBody)
+                then currentMethod <- methodName
+            | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
+                if (inClassBody)
+                then instanceName <- instanceName' 
+            | InstanceMethodInvocation instanceName invocationName ->
+                if (inClassBody)
+                then locs' <- (currentMethod, invocationName) :: locs'           
+            | _ -> ())   
+        match locs' with
+        | [] -> None
+        | _ -> DcUsedInDc { target = dcTarget; host = dcHost; locs = _transformLocs locs'} |> Some
+
+let discoverIcUsedInWc (ic : InfraClass) (wc: WebClass) =   
+    let (InfraClass (icName, icPath)) = ic
+    let (WebClass (wcName, wcPath)) = wc
+    let iocTypes = icName :: (discoverClassInterfacesForClassFile icName (File'.toFile' icPath))    
+    let lines = File'.toFile'(wcPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable instanceName = "DummyNonExistentInstance"
+    let mutable currentMethod = ""
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = wcName       
+        | MethodDefinitionPattern methodName ->
+            if (inClassBody)
+            then currentMethod <- methodName
+        | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
+            if (inClassBody)
+            then instanceName <- instanceName' 
+        | InstanceMethodInvocation instanceName invocationName ->
+            if (inClassBody)
+            then locs' <- (currentMethod, invocationName) :: locs'           
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> IcUsedInWc { target = ic; host = wc; locs = _transformLocs locs'} |> Some
+
+let discoverDcUsedInWc (dc : DomainClass) (wc: WebClass) =   
+    let (DomainClass (dcName, dcPath)) = dc
+    let (WebClass (wcName, wcPath)) = wc
+    let iocTypes = dcName :: (discoverClassInterfacesForClassFile dcName (File'.toFile' dcPath))    
+    let lines = File'.toFile'(wcPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable instanceName = "DummyNonExistentInstance"
+    let mutable currentMethod = ""
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = wcName       
+        | MethodDefinitionPattern methodName ->
+            if (inClassBody)
+            then currentMethod <- methodName
+        | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
+            if (inClassBody)
+            then instanceName <- instanceName' 
+        | InstanceMethodInvocation instanceName invocationName ->
+            if (inClassBody)
+            then locs' <- (currentMethod, invocationName) :: locs'           
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> DcUsedInWc { target = dc; host = wc; locs = _transformLocs locs'} |> Some
+
+
+let discoverWcUsedInWc (wcTarget : WebClass) (wcHost: WebClass) =
+    if (wcTarget = wcHost)
+    then None
+    else 
+        let (WebClass (wcTargetName, wcTargetPath)) = wcTarget
+        let (WebClass (wcHostName, wcHostPath)) = wcHost
+        let iocTypes = wcTargetName :: (discoverClassInterfacesForClassFile wcTargetName (File'.toFile' wcTargetPath)) 
+        let lines = File'.toFile'(wcHostPath : string).getLines() 
+        let mutable locs' : List<string * string> = []
+        let mutable inClassBody = false
+        let mutable instanceName = "DummyNonExistentInstance"
+        let mutable currentMethod = ""
+        lines |> List.iter ( 
+            function    
+            | ClassDefinitionPattern className -> inClassBody <- className = wcHostName       
+            | MethodDefinitionPattern methodName ->
+                if (inClassBody)
+                then currentMethod <- methodName
+            | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
+                if (inClassBody)
+                then instanceName <- instanceName' 
+            | InstanceMethodInvocation instanceName invocationName ->
+                if (inClassBody)
+                then locs' <- (currentMethod, invocationName) :: locs'           
+            | _ -> ())   
+        match locs' with
+        | [] -> None
+        | _ -> WcUsedInWc { target = wcTarget; host = wcHost; locs = _transformLocs locs'} |> Some

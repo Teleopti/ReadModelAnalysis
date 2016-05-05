@@ -51,7 +51,8 @@
     <Compile Include="IO.fs" />
     <Compile Include="Domain.fs" />
     <Compile Include="Config.fs" />
-    <Compile Include="ContentDigest.fs" />
+    <Compile Include="CodeDigest.fs" />
+    <Compile Include="AssemblyDigest.fs" />
     <Compile Include="Discover.fs" />
     <Compile Include="Program.fs" />
     <None Include="dev.fsx" />
