@@ -30,7 +30,7 @@ let testTraceUsageChain =
 let testDiscoverReadModelUsedInNhibMapping =
     fun _ ->
         let allNhibQueries = 
-            discoverNhibMapping configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat       
+            scanNhibMappingFiles configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat       
         let rm = ReadModel "GroupingReadOnly" 
         allNhibQueries
         |>  List.choose (discoverRmUsedInNq rm)        
@@ -41,7 +41,7 @@ let testDiscoverReadModelUsedInStoredProcedure =
            let sp = StoredProcedure (file.getShortName(), file.Path)
            let rm = ReadModel "GroupingReadOnly"
            discoverRmUsedInSp rm sp  
-        discoverStoredProcedure configValues present
+        scanStoredProcedureFiles configValues present
 
 let testDiscoverStoredProcedureUsedInStoredProcedure =
     fun _ ->
@@ -51,23 +51,23 @@ let testDiscoverStoredProcedureUsedInStoredProcedure =
            then None
            else discoverSpUsedInSp targetSp sp                     
         let allSps = 
-            discoverStoredProcedure configValues (
+            scanStoredProcedureFiles configValues (
                 fun spFile -> StoredProcedure ( spFile.getShortName(), spFile.Path) |> Some )
         [
             for sp in allSps do
-                yield! discoverStoredProcedure configValues (present sp)
+                yield! scanStoredProcedureFiles configValues (present sp)
         ]
 
 let testDiscoverClassInFile =
     fun _ ->
         let path = @"C:\Teleopti\Domain\ApplicationLayer\AbsenceRequests\NewAbsenceReportEventHandler.cs"
         let file = File'.toFile'(path)     
-        discoverClassInFile id file
+        _discoverClassInFile id file
        
 let testDiscoverRmUsedInIc =
     fun _ ->
         let allIcs =
-            discoverInfraClass configValues  (discoverClassInFile InfraClass >> Some) |> List.concat 
+            scanInfraClassFiles configValues  (_discoverClassInFile InfraClass >> Some) |> List.concat 
         let rm = ReadModel "PersonScheduleDay"                               
         allIcs 
         |> List.choose (discoverRmUsedInIc rm) 
@@ -75,9 +75,9 @@ let testDiscoverRmUsedInIc =
 let testDiscoverSpUsedInDc =
     fun _ ->
         let allDcs =
-            discoverDomainClass configValues  (discoverClassInFile DomainClass >> Some) |> List.concat 
+            scanDomainClassFiles configValues  (_discoverClassInFile DomainClass >> Some) |> List.concat 
         let allSps = 
-            discoverStoredProcedure configValues (
+            scanStoredProcedureFiles configValues (
                 fun spFile -> StoredProcedure ( spFile.getShortName(), spFile.Path) |> Some )                
         [ for dc in allDcs do for sp in allSps do yield (sp, dc) ]
         |> List.choose (fun (sp, dc) -> discoverSpUsedInDc sp dc)  
@@ -85,9 +85,9 @@ let testDiscoverSpUsedInDc =
 let testDiscoverSpUsedInIc =
     fun _ ->
         let allIcs =
-            discoverInfraClass configValues  (discoverClassInFile InfraClass >> Some) |> List.concat 
+            scanInfraClassFiles configValues  (_discoverClassInFile InfraClass >> Some) |> List.concat 
         let allSps = 
-            discoverStoredProcedure configValues (
+            scanStoredProcedureFiles configValues (
                 fun spFile -> StoredProcedure ( spFile.getShortName(), spFile.Path) |> Some )                
         [ for ic in allIcs do for sp in allSps do yield (sp, ic) ]
         |> List.choose (fun (sp, ic) -> discoverSpUsedInIc sp ic)           
@@ -95,9 +95,9 @@ let testDiscoverSpUsedInIc =
 let testDiscoverNqUsedInDc =
     fun _ ->
         let allDcs =
-            discoverDomainClass configValues  (discoverClassInFile DomainClass >> Some) |> List.concat 
+            scanDomainClassFiles configValues  (_discoverClassInFile DomainClass >> Some) |> List.concat 
         let allNhibQueries = 
-            discoverNhibMapping configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat                 
+            scanNhibMappingFiles configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat                 
         [ for dc in allDcs do for nq in allNhibQueries do yield (nq, dc) ]
         |> List.choose (fun (nq, dc) -> discoverNqUsedInDc nq dc)         
 
@@ -111,9 +111,9 @@ let testNhibQueryPattern =
 let testDiscoverNqUsedInIc =
     fun _ ->
         let allIcs =
-            discoverInfraClass configValues  (discoverClassInFile InfraClass >> Some) |> List.concat 
+            scanInfraClassFiles configValues  (_discoverClassInFile InfraClass >> Some) |> List.concat 
         let allNhibQueries = 
-            discoverNhibMapping configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat                 
+            scanNhibMappingFiles configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat                 
         [ for ic in allIcs do for nq in allNhibQueries do yield (nq, ic) ]
         |> List.choose (fun (nq, ic) -> discoverNqUsedInIc nq ic)  
 
@@ -121,7 +121,7 @@ let testDiscoverIcUsedInDc =
     fun _ ->
         let ic = InfraClass ("PersonAssignmentRepository", @"C:\Teleopti\Infrastructure\Repositories\PersonAssignmentRepository.cs")
         let allDcs =
-            discoverDomainClass configValues  (discoverClassInFile DomainClass >> Some) |> List.concat 
+            scanDomainClassFiles configValues  (_discoverClassInFile DomainClass >> Some) |> List.concat 
         allDcs
         |> List.choose (fun dc -> discoverIcUsedInDc ic dc)
 
@@ -129,7 +129,7 @@ let testDiscoverIcUsedInIc =
     fun _ ->
         let ic = InfraClass ("AbsenceRequestUpdater", @"C:\Teleopti\Infrastructure\Absence\AbsenceRequestUpdater.cs")
         let allIcs =
-            discoverInfraClass configValues  (discoverClassInFile InfraClass >> Some) |> List.concat 
+            scanInfraClassFiles configValues  (_discoverClassInFile InfraClass >> Some) |> List.concat 
         allIcs
         |> List.choose (fun dc -> discoverIcUsedInIc ic dc)
 
@@ -137,6 +137,6 @@ let testDiscoverDcUsedInDc =
     fun _ ->
         let dc = DomainClass ("CreateOrUpdateSkillDays", @"C:\Teleopti\Domain\Outbound\CreateOrUpdateSkillDays.cs")
         let allDcs =
-            discoverDomainClass configValues  (discoverClassInFile DomainClass >> Some) |> List.concat 
+            scanDomainClassFiles configValues  (_discoverClassInFile DomainClass >> Some) |> List.concat 
         allDcs
         |> List.choose (fun dc' -> discoverDcUsedInDc dc dc')
