@@ -25,12 +25,12 @@ type Q private () =
     static member path (DomainClass (_, path')) = path'
     static member path (EventHandlerClass (_, path', _)) = path'
     static member path (WebClass (_, path')) = path'
-    static member event (EventHandlerClass (_, _, event')) = event'
+    static member events (EventHandlerClass (_, _, events')) = events'
 
 type LocInfo = { hostLoc : string; targetLocs : string list }
 type UseInfo<'S, 'T> = { target: 'S; host: 'T; locs: LocInfo list } 
 type EpubInfo<'S> = { event: EventClass; host: 'S; locs: LocInfo list  }
-type EhandleInfo<'T> = { handler: EventHandlerClass; publisher: 'T; event: EventClass; locs: LocInfo list }
+type EhandleInfo<'T> = { handler: EventHandlerClass; publisher: 'T; locs: LocInfo list }
 
 type EventPublish = 
     | EpubInIc of EpubInfo<InfraClass>
@@ -63,6 +63,7 @@ type Usage =
     | EhcHandlesIc of EhandleInfo<InfraClass>
     | EhcHandlesDc of EhandleInfo<DomainClass>
     | EhcHandlesWc of EhandleInfo<WebClass>
+    | EhcHandlesEhc of EhandleInfo<EventHandlerClass>
 
 type UsageChain = Usage list
 
@@ -72,6 +73,11 @@ let traceNextUsage (usage : Usage) =
         locsNext 
         |> List.collect (fun loc -> loc.targetLocs)
         |> List.exists2 (fun loc1 loc2 -> loc1 = loc2) availables
+    let nextHandleAvailableEvents locsNext eventHandler =
+        locsNext
+        |> List.collect (fun loc -> loc.targetLocs)
+        |> List.exists2 (fun e1 e2 -> e1 = EventClass e2) (Q.events eventHandler)
+               
     match usage with
     | RmUsedInSp { target = target; host = host; locs = locs } ->
         (function
@@ -159,51 +165,64 @@ let traceNextUsage (usage : Usage) =
             | _ -> None)
     | RmUsedInEh { target = target; host = host; locs = locs } ->
          (function
-            | EhcHandlesIc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesDc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesWc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | _ -> None)                                                              
-    | NqUsedInEh { target = target; host = host; locs = locs } ->                     
-         (function                                                                    
-            | EhcHandlesIc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesDc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesWc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | _ -> None)                                                              
-    | SpUsedInEh { target = target; host = host; locs = locs } ->                     
-         (function                                                                    
-            | EhcHandlesIc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesDc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesWc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | _ -> None)                                                              
-    | IcUsedInEh { target = target; host = host; locs = locs } ->                     
-         (function                                                                    
-            | EhcHandlesIc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesDc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesWc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | _ -> None)                                                               
-    | DcUsedInEh { target = target; host = host; locs = locs } ->                      
-         (function                                                                     
-            | EhcHandlesIc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesDc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
-            | EhcHandlesWc { handler = handler'; publisher = publisher'; event = event'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it     
+            | _ -> None)                                                                                                                               
+    | NqUsedInEh { target = target; host = host; locs = locs } ->                                                                                      
+         (function                                                                                                                                     
+            | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it    
+            | _ -> None)                                                                                                                               
+    | SpUsedInEh { target = target; host = host; locs = locs } ->                                                                                      
+         (function                                                                                                                                     
+            | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it  
+            | _ -> None)                                                                                                                               
+    | IcUsedInEh { target = target; host = host; locs = locs } ->                                                                                      
+         (function                                                                                                                                     
+            | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it  
+            | _ -> None)                                                                                                                               
+    | DcUsedInEh { target = target; host = host; locs = locs } ->                                                                                      
+         (function                                                                                                                                     
+            | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
+            | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextHandleAvailableEvents locs' host -> Some it           
             | _ -> None)
-    | EhcHandlesIc { handler = handler; publisher = publisher; event = event; locs = locs } ->
+    | EhcHandlesIc { handler = handler; publisher = publisher; locs = locs } ->
          (function
             | IcUsedInIc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | IcUsedInDc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | IcUsedInWc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | IcUsedInEh { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | _ -> None)                                                                                                                         
-    | EhcHandlesDc { handler = handler; publisher = publisher; event = event; locs = locs } ->                                                                 
+    | EhcHandlesDc { handler = handler; publisher = publisher; locs = locs } ->                                                                 
          (function                                                                                                                               
             | DcUsedInWc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | DcUsedInDc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | DcUsedInEh { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it           
             | _ -> None)
-    | EhcHandlesWc { handler = handler; publisher = publisher; event = event; locs = locs } ->
+    | EhcHandlesWc { handler = handler; publisher = publisher; locs = locs } ->
          (function
             | WcUsedInWc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
             | _ -> None)
+    | EhcHandlesEhc { handler = handler; publisher = publisher; locs = locs } ->
+        (function                                                                                                                                     
+            | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when publisher = handler' && nextHandleAvailableEvents locs' publisher -> Some it           
+            | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when publisher = handler' && nextHandleAvailableEvents locs' publisher -> Some it           
+            | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when publisher = handler' && nextHandleAvailableEvents locs' publisher -> Some it           
+            | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when publisher = handler' && nextHandleAvailableEvents locs' publisher -> Some it           
+            | _ -> None) 
+
 
 let traceUsageChain (startingUsage : Usage) (usageCollection : Usage list) : UsageChain list =
     let growOneStep (revChains : UsageChain list) =

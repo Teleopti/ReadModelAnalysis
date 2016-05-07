@@ -20,16 +20,27 @@ let checkEventHandlerType (t : Type) =
     then None
     else Some events
     
-let domainClassTypeToPath (config : ConfigValues) (t : Type) =
-    let domainNsPrefix = config.domainNsPrefix
-    [ 
-        yield config.pathToDomainClasses
-        yield! Array.toList <|  t.FullName.Replace(domainNsPrefix, "").Split('.')           
-    ]
-    |> fun pieces -> String.Join("\\", pieces) + ".cs"
-
 type ClassPresentation<'T> = Type -> 'T option
        
 let scanDomainClasses (config: ConfigValues) (present: ClassPresentation<'T>) : 'T list =
     let domain = _loadDomain(config)
     domain.GetTypes() |> Seq.toList |> List.choose present         
+
+open IO
+open CodeDigest
+
+let domainClassTypeToPath (config : ConfigValues) (t : Type) =   
+    let domainNsPrefix = config.domainNsPrefix
+    [ 
+        yield config.pathToDomainClasses
+        yield! Array.toList <|  t.Namespace.Replace(domainNsPrefix, "").Split('.')           
+    ]
+    |> fun pieces -> String.Join("\\", pieces)
+    |> fun path -> Dir'.toDir'(path).getFiles()
+    |> List.find (fun f ->
+        let build (name, path) =
+            if (name = t.Name)
+            then Some (name, path)
+            else None
+        discoverClassInFile build f |> List.exists Option.isSome)
+    |> fun f -> f.Path

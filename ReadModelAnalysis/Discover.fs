@@ -11,16 +11,6 @@ let _transformLocs (locs: List<string*string>) : LocInfo list =
     |> List.groupBy fst
     |> List.map (fun (k, v) -> { hostLoc = k;  targetLocs = v |> List.map snd |> List.distinct })
 
-let _discoverClassInFile (builder: string * string -> 'T) (file : File') =
-    let mutable classes : string list = []
-    let lines = file.getLines() 
-    lines |> List.iter (
-        function
-        | ClassDefinitionPattern className -> classes <- className :: classes
-        | _ -> ()
-    )
-    classes |> List.map (fun c -> builder (c, file.Path))
-
 let discoverSqlQueryInNhibMapping (file : File') =
     let mutable queries : string list = []
     let lines = file.getLines() 
@@ -229,3 +219,66 @@ let discoverIcUsedInWc (target : InfraClass) (host: WebClass) =
     let targetTriple = target, Q.name target, Q.path target
     let hostTriple = host, Q.name host, Q.path host
     _discoverClassUsedInClass targetTriple hostTriple IcUsedInWc
+
+let _discoverEventsPublishInClass (es : EventClass list) (host, hostName, hostPath) =
+    let enames = es |> List.map (function EventClass ename -> ename)
+    let lines = File'.toFile'(hostPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable currentMethod = "" 
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | MethodDefinitionPattern methodName ->
+            if (inClassBody)
+            then currentMethod <- methodName
+        | PublishEventPattern enames eventName ->
+            if (inClassBody)
+            then locs' <- (currentMethod, eventName) :: locs'                 
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> locs' |> Some
+
+let _discoverEhcHandlesClass (target: EventHandlerClass) (host, hostName, hostPath) (buildUsage: EhandleInfo<'T> -> Usage) =
+    let publishLocs' = _discoverEventsPublishInClass (Q.events target) (host, hostName, hostPath)               
+    publishLocs' 
+    |> Option.map (fun locs' ->
+        buildUsage {handler = target; publisher = host; locs = _transformLocs locs'})
+   
+let discoverEhcHandlesIc (target: EventHandlerClass) (host: InfraClass) =
+     let hostTriple = host, Q.name host, Q.path host
+     _discoverEhcHandlesClass target hostTriple EhcHandlesIc
+
+let discoverEhcHandlesDc (target: EventHandlerClass) (host: DomainClass) =
+    let hostTriple = host, Q.name host, Q.path host
+    _discoverEhcHandlesClass target hostTriple EhcHandlesDc
+
+let discoverEhcHandlesWc (target: EventHandlerClass) (host: WebClass) =
+    let hostTriple = host, Q.name host, Q.path host
+    _discoverEhcHandlesClass target hostTriple EhcHandlesWc
+
+let discoverEhcHandlesEhc (target: EventHandlerClass) (host: EventHandlerClass) =
+    if (target = host)
+    then None
+    else 
+        let targetName, targetPath, targetEvents = Q.name target, Q.path target, Q.events target
+        let targetEnames = targetEvents |> List.map (function EventClass ename -> ename)
+        let hostName, hostPath = Q.name host, Q.path host
+        let lines = File'.toFile'(hostPath : string).getLines() 
+        let mutable locs' : List<string * string> = []
+        let mutable inClassBody = false
+        let mutable currentHandleEvent = "" 
+        lines |> List.iter ( 
+            function    
+            | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+            | HandleMethodDefinitionPattern eventName ->
+                if (inClassBody)
+                then currentHandleEvent <- eventName
+            | PublishEventPattern targetEnames eventName ->
+                if (inClassBody)
+                then locs' <- (currentHandleEvent, eventName) :: locs'                 
+            | _ -> ())   
+        match locs' with
+        | [] -> None
+        | _ -> locs' |> Some

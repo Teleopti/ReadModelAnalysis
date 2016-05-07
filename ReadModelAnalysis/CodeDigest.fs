@@ -55,6 +55,17 @@ let (|NamespacePattern|_|) line =
     let matched = Regex.Match(line, pattern)
     if matched.Success then Some(matched.Groups.["namespace"].Value) else None
 
+let (|PublishEventPattern|_|) enames line = 
+    let wrapped = "(?<eventName>" + String.Join("|", enames |> Seq.map (fun x -> Regex.Escape(x))) + ")"
+    let pattern = @"\bnew\s+" + wrapped + @"\b"
+    let matched = Regex.Match(line, pattern)
+    if matched.Success then Some(matched.Groups.["eventName"].Value) else None
+
+let (|HandleMethodDefinitionPattern|_|) line = 
+    let pattern = @"(?:(public|protected|private|static|virtual|override)\s+)+void\s+Handle\s*\(\s*(?<eventType>\w+)\s+"
+    let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
+    if matched.Success then Some(matched.Groups.["eventType"].Value) else None
+
 let extractInterfacesFromString input =
     let pattern = @"(?<=\s)I[\w]+(<.+>)?";
     let matches = Regex.Matches(input, pattern);
@@ -94,3 +105,19 @@ let scanWebClassFiles (configValues : ConfigValues) (present : FilePresentation<
         file.Path.EndsWith(".cs", System.StringComparison.OrdinalIgnoreCase)
     Dir'.toDir'(configValues.pathToWebClasses).getFiles(isClassFile)
     |> List.choose present
+
+let scanClassFiles (dir: Dir') (present : FilePresentation<'T>) : 'T list =
+    let isClassFile (file : File') = 
+        file.Path.EndsWith(".cs", System.StringComparison.OrdinalIgnoreCase)
+    dir.getFiles(isClassFile)
+    |> List.choose present
+
+let discoverClassInFile (builder: string * string -> 'T) (file : File') =
+    let mutable classes : string list = []
+    let lines = file.getLines() 
+    lines |> List.iter (
+        function
+        | ClassDefinitionPattern className -> classes <- className :: classes
+        | _ -> ()
+    )
+    classes |> List.map (fun c -> builder (c, file.Path))
