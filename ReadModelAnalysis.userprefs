@@ -1,0 +1,18 @@
+﻿<Properties StartupItem="ReadModelAnalysis/ReadModelAnalysis.fsproj">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="ReadModelAnalysis/dev.fsx">
+    <Files>
+      <File FileName="ReadModelAnalysis/Discover.fs" Line="62" Column="5" />
+      <File FileName="ReadModelAnalysis/Domain.fs" Line="168" Column="79" />
+      <File FileName="ReadModelAnalysis/IO.fs" Line="8" Column="49" />
+      <File FileName="ReadModelAnalysis/dev.fsx" Line="152" Column="47" />
+      <File FileName="ReadModelAnalysis/CodeDigest.fs" Line="66" Column="1" />
+      <File FileName="ReadModelAnalysis/AssemblyDigest.fs" Line="23" Column="26" />
+      <File FileName="ReadModelAnalysis/Config.fs" Line="19" Column="25" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

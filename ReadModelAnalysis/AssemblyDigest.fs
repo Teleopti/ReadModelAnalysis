@@ -4,7 +4,7 @@ open System
 open System.Reflection
 open Config
 
-let loadDomain (config : ConfigValues) =    
+let _loadDomain (config : ConfigValues) =    
     Assembly.LoadFrom(config.pathToDomainAssembly)
 
 let checkEventHandlerType (t : Type) =
@@ -27,4 +27,9 @@ let domainClassTypeToPath (config : ConfigValues) (t : Type) =
         yield! Array.toList <|  t.FullName.Replace(domainNsPrefix, "").Split('.')           
     ]
     |> fun pieces -> String.Join("\\", pieces) + ".cs"
-      
+
+type ClassPresentation<'T> = Type -> 'T option
+       
+let scanDomainClasses (config: ConfigValues) (present: ClassPresentation<'T>) : 'T list =
+    let domain = _loadDomain(config)
+    domain.GetTypes() |> Seq.toList |> List.choose present         

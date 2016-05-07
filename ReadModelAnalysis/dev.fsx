@@ -140,3 +140,13 @@ let testDiscoverDcUsedInDc =
             scanDomainClassFiles configValues  (_discoverClassInFile DomainClass >> Some) |> List.concat 
         allDcs
         |> List.choose (fun dc' -> discoverDcUsedInDc dc dc')
+
+let testListAllEventHandlerClasses =
+    fun _ ->
+        let present t = 
+            checkEventHandlerType t 
+            |> Option.map (                
+                fun es ->
+                    let events = es |> List.map EventClass 
+                    EventHandlerClass (t.Name, domainClassTypeToPath configValues t, events))
+        scanDomainClasses configValues present

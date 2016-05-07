@@ -7,7 +7,7 @@ type NhibQuery = NhibQuery of name: string * path: string
 type StoredProcedure = StoredProcedure of name: string * path: string
 type InfraClass = InfraClass of name: string * path: string
 type DomainClass = DomainClass of name: string * path: string
-type EventHandlerClass = EventHandlerClass of name: string * path: string * event: EventClass
+type EventHandlerClass = EventHandlerClass of name: string * path: string * events: EventClass list
 type WebClass = WebClass of name: string * path: string
 
 type Q private () =

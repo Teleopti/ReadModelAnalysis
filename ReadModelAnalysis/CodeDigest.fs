@@ -1,7 +1,6 @@
 ﻿module CodeDigest
 
 open System
-
 open System.Text.RegularExpressions   
 
 let (|ReadModelPattern|_|) readModel line = 
@@ -61,5 +60,37 @@ let extractInterfacesFromString input =
     let matches = Regex.Matches(input, pattern);
     matches |> Seq.cast<Match> |> Seq.toList |> List.map (fun m -> m.Value)
 
-
+open IO
+open Config
     
+type FilePresentation<'T> = File' -> 'T option
+
+let scanNhibMappingFiles (configValues : ConfigValues) (present : FilePresentation<'T>) : 'T list =
+    let isNhibMappingFile (file : File') = 
+        file.Path.EndsWith(".hbm.xml", System.StringComparison.OrdinalIgnoreCase)
+    Dir'.toDir'(configValues.pathToNhibMappings).getFiles(isNhibMappingFile)   
+    |> List.choose present
+
+let scanStoredProcedureFiles (configValues : ConfigValues) (present : FilePresentation<'T>) : 'T list =
+    let isStoredProcedureFile (file : File') = 
+        file.Path.EndsWith(".sql", System.StringComparison.OrdinalIgnoreCase)
+    Dir'.toDir'(configValues.pathToStoredProcedures).getFiles(isStoredProcedureFile)
+    |> List.choose present
+
+let scanInfraClassFiles (configValues : ConfigValues) (present : FilePresentation<'T>) : 'T list =
+    let isClassFile (file : File') = 
+        file.Path.EndsWith(".cs", System.StringComparison.OrdinalIgnoreCase)
+    Dir'.toDir'(configValues.pathToInfraClasses).getFiles(isClassFile)
+    |> List.choose present
+
+let scanDomainClassFiles (configValues : ConfigValues) (present : FilePresentation<'T>) : 'T list =
+    let isClassFile (file : File') = 
+        file.Path.EndsWith(".cs", System.StringComparison.OrdinalIgnoreCase)
+    Dir'.toDir'(configValues.pathToDomainClasses).getFiles(isClassFile)
+    |> List.choose present
+
+let scanWebClassFiles (configValues : ConfigValues) (present : FilePresentation<'T>) : 'T list =
+    let isClassFile (file : File') = 
+        file.Path.EndsWith(".cs", System.StringComparison.OrdinalIgnoreCase)
+    Dir'.toDir'(configValues.pathToWebClasses).getFiles(isClassFile)
+    |> List.choose present
