@@ -178,3 +178,12 @@ let testDiscoverEhcHandlesEhc =
                     yield (handlerTarget, handlerHost)
         ]
         |> List.choose (function (target, host) -> discoverEhcHandlesEhc target host)
+
+let testTraceNextUsageForEventHandlingUsage =
+    fun _ ->
+        let dc = DomainClass ("PersonAssignment", @"C:\Teleopti\Domain\Scheduling\Assignment\PersonAssignment.cs")
+        let ehc1 = EventHandlerClass ("ScheduleChangedEventPublisher", @"C:\Teleopti\Domain\ApplicationLayer\ScheduleChangedEventHandlers\ScheduleChangedEventPublisher.cs", [EventClass "FullDayAbsenceAddedEvent"; EventClass "PersonAbsenceRemovedEvent"; EventClass "PersonAbsenceAddedEvent"; EventClass "ActivityAddedEvent"; EventClass "ActivityMovedEvent"; EventClass "PersonAbsenceModifiedEvent"; EventClass "DayOffAddedEvent"; EventClass "DayUnscheduledEvent"; EventClass "PersonAssignmentLayerRemovedEvent"])
+        let ehc2 = EventHandlerClass("ScheduleChangedNotifier", "C:\Teleopti\Domain\ApplicationLayer\ScheduleChangedEventHandlers\ScheduleChangedNotifier.cs", [EventClass "ScheduleChangedEvent"])
+        let usage1 = discoverEhcHandlesDc ehc1 dc |> Option.get
+        let usage2 = discoverEhcHandlesEhc ehc2 ehc1 |> Option.get
+        traceUsageChain usage2 [ usage1; usage2; ];;
