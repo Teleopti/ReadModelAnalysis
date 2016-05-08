@@ -4,6 +4,7 @@
 #load "CodeDigest.fs"
 #load "AssemblyDigest.fs"
 #load "Discover.fs"
+#load "Explore.fs"
 
 open IO
 open Domain
@@ -11,6 +12,7 @@ open Config
 open CodeDigest
 open AssemblyDigest
 open Discover
+open Explore
 
 let rm1 = ReadModel "rm1"
 let rm2 = ReadModel "rm2"
@@ -187,3 +189,15 @@ let testTraceNextUsageForEventHandlingUsage =
         let usage1 = discoverEhcHandlesDc ehc1 dc |> Option.get
         let usage2 = discoverEhcHandlesEhc ehc2 ehc1 |> Option.get
         traceUsageChain usage2 [ usage1; usage2; ];;
+
+let testExpandSpFromRm =
+    fun _ ->
+        let rm = ReadModel "FindPerson"
+        expandSpFromRm configValues [rm]
+
+let testExpandSpFromSp =
+    fun _ ->
+        let allSps = 
+            scanStoredProcedureFiles configValues (
+                fun spFile -> StoredProcedure ( spFile.getShortName(), spFile.Path) |> Some )                
+        expandSpFromSp configValues allSps

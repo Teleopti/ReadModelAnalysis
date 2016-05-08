@@ -15,7 +15,7 @@ let (|SqlQueryTagStartPattern|_|) line =
 
 let (|StoredProcedurePattern|_|) storedProcedureName line = 
     let pieces = Regex.Split(storedProcedureName, @"\.") |> Seq.map (fun s -> @"\[?" + s + @"\]?")
-    let pattern = String.Join(@"\.", pieces) 
+    let pattern = @"\b" + String.Join(@"\.", pieces) + @"\b"
     let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
     if matched.Success then Some(storedProcedureName) else None
 
