@@ -281,4 +281,4 @@ let discoverEhcHandlesEhc (target: EventHandlerClass) (host: EventHandlerClass) 
             | _ -> ())   
         match locs' with
         | [] -> None
-        | _ -> locs' |> Some
+        | _ -> EhcHandlesEhc { handler = target; publisher = host; locs = _transformLocs locs' } |> Some
