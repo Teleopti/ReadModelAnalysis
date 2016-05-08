@@ -5,10 +5,11 @@ open Config
 open CodeDigest
 open Discover
 
+type Expansion<'T> = { targets : 'T list; usages : Usage list }
 
-let _expand (targetCollection: 'T list) (seeds: 'U list) (discover: 'U -> 'T -> Usage option) =
+let _expand (targetCollection: 'T list) (seeds: 'U list) (discover: 'U -> 'T -> Usage option) : 'T Expansion =
     let needRecurse = typeof<'T> = typeof<'U>    
-    let rec loop seeds' usages' =
+    let rec loop seeds' accTargets' accUsages'=
         let discoveredTargetUsages = 
             [
                 for seed in seeds' do
@@ -18,12 +19,13 @@ let _expand (targetCollection: 'T list) (seeds: 'U list) (discover: 'U -> 'T -> 
             |> List.choose (
                 function (seed, target) -> discover seed target |> Option.map (fun x -> (target, x)))
         let cast = List.toSeq >> Seq.cast >> Seq.toList
-        let usages =  discoveredTargetUsages |> List.map snd |> List.append usages'        
+        let accUsages =  discoveredTargetUsages |> List.map snd |> List.append accUsages'  
+        let accTargets = discoveredTargetUsages |> List.map fst |> List.append accTargets'      
         match discoveredTargetUsages, needRecurse with
-        | [], _ -> usages
-        | _, false -> usages
-        | _, true -> loop (discoveredTargetUsages |> List.map fst |> cast) usages
-    loop seeds []
+        | [], _ -> accTargets, accUsages
+        | _, false -> accTargets, accUsages
+        | _, true -> loop (discoveredTargetUsages |> List.map fst |> cast) accTargets accUsages
+    loop seeds [] [] |> function (ts', us') -> { targets = ts'; usages = us' }
 
 let expandSpFromRm (configValues : ConfigValues) (seeds: ReadModel list) =
     let allSps = 
