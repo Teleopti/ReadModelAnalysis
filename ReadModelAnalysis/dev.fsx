@@ -201,3 +201,23 @@ let testExpandSpFromSp =
             scanStoredProcedureFiles configValues (
                 fun spFile -> StoredProcedure ( spFile.getShortName(), spFile.Path) |> Some )                
         expandSpFromSp configValues allSps
+
+let testClosureOfSps =
+    fun _ ->
+        let rm = ReadModel "ScheduleProjectionReadOnly"
+        closureOfSps configValues [rm]
+
+let testExpandEhcFromRm =
+    fun _ ->
+        let rm = ReadModel "FindPerson"
+        expandEhcFromRm configValues [rm]
+
+let testClosureOfIc =
+    fun _ ->
+        let rm = ReadModel "FindPerson"
+        closureOfIcs configValues [rm]
+
+let testExpandIcFromSp =
+    fun _ ->
+        let sp = StoredProcedure ("ReadModel.PersonFinderWithCriteria", "C:\Teleopti\Database\TeleoptiCCC7\Programmability\03StoredProcedures\ReadModel.PersonFinderWithCriteria.sql")
+        expandIcFromSp configValues [sp]

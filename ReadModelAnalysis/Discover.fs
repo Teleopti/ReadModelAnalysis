@@ -282,3 +282,66 @@ let discoverEhcHandlesEhc (target: EventHandlerClass) (host: EventHandlerClass) 
         match locs' with
         | [] -> None
         | _ -> EhcHandlesEhc { handler = target; publisher = host; locs = _transformLocs locs' } |> Some
+
+let discoverRmUsedInEh (target : ReadModel) (host : EventHandlerClass) =
+    let hostName, hostPath, hostEvents = Q.name host, Q.path host, Q.events host
+    let targetName = Q.name target
+    let lines = File'.toFile'(hostPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable currentHandleEvent = "" 
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | HandleMethodDefinitionPattern eventName ->
+                if (inClassBody)
+                then currentHandleEvent <- eventName
+        | ReadModelPattern targetName _ -> 
+            if (inClassBody)
+            then  locs' <- (currentHandleEvent, targetName) :: locs'           
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> RmUsedInEh { target = target; host = host; locs = _transformLocs locs'} |> Some
+
+let discoverSpUsedInEh (target : StoredProcedure) (host : EventHandlerClass) =
+    let hostName, hostPath, hostEvents = Q.name host, Q.path host, Q.events host
+    let targetName = Q.name target
+    let lines = File'.toFile'(hostPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable currentHandleEvent = ""
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | HandleMethodDefinitionPattern eventName ->
+                if (inClassBody)
+                then currentHandleEvent <- eventName
+        | StoredProcedurePattern targetName _ -> 
+            if (inClassBody)
+            then  locs' <- (currentHandleEvent, targetName) :: locs'           
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> SpUsedInEh { target = target; host = host; locs = _transformLocs locs'} |> Some
+
+let discoverNqUsedInEh (target : NhibQuery) (host: EventHandlerClass) =
+    let hostName, hostPath, hostEvents = Q.name host, Q.path host, Q.events host
+    let (NhibQuery (targetName, targetPath)) = target
+    let lines = File'.toFile'(hostPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable currentHandleEvent = ""
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | HandleMethodDefinitionPattern eventName ->
+                if (inClassBody)
+                then currentHandleEvent <- eventName
+        | NhibQueryPattern targetName _ -> 
+            if (inClassBody)
+            then  locs' <- (currentHandleEvent, targetName) :: locs'           
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> NqUsedInEh { target = target; host = host; locs = _transformLocs locs'} |> Some

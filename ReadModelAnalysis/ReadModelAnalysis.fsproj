@@ -54,6 +54,7 @@
     <Compile Include="CodeDigest.fs" />
     <Compile Include="AssemblyDigest.fs" />
     <Compile Include="Discover.fs" />
+    <Compile Include="Explore.fs" />
     <Compile Include="Program.fs" />
     <None Include="dev.fsx" />
     <None Include="App.config" />

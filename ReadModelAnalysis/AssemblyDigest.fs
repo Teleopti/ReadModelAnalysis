@@ -3,6 +3,9 @@
 open System
 open System.Reflection
 open Config
+open IO
+open Domain
+open CodeDigest
 
 let _loadDomain (config : ConfigValues) =    
     Assembly.LoadFrom(config.pathToDomainAssembly)
@@ -26,8 +29,6 @@ let scanDomainClasses (config: ConfigValues) (present: ClassPresentation<'T>) : 
     let domain = _loadDomain(config)
     domain.GetTypes() |> Seq.toList |> List.choose present         
 
-open IO
-open CodeDigest
 
 let domainClassTypeToPath (config : ConfigValues) (t : Type) =   
     let domainNsPrefix = config.domainNsPrefix
@@ -44,3 +45,12 @@ let domainClassTypeToPath (config : ConfigValues) (t : Type) =
             else None
         discoverClassInFile build f |> List.exists Option.isSome)
     |> fun f -> f.Path
+
+let getAllEventHandlerClasses (configValues : ConfigValues) =
+    let getEventHandlerType t =
+            checkEventHandlerType t 
+            |> Option.bind (                
+                fun es ->
+                    let events = es |> List.map EventClass 
+                    EventHandlerClass (t.Name, domainClassTypeToPath configValues t, events) |> Some)                   
+    scanDomainClasses configValues getEventHandlerType        
