@@ -11,16 +11,6 @@ let _transformLocs (locs: List<string*string>) : LocInfo list =
     |> List.groupBy fst
     |> List.map (fun (k, v) -> { hostLoc = k;  targetLocs = v |> List.map snd |> List.distinct })
 
-let discoverSqlQueryInNhibMapping (file : File') =
-    let mutable queries : string list = []
-    let lines = file.getLines() 
-    lines |> List.iter (
-        function
-        | SqlQueryTagStartPattern queryName -> queries <- queryName :: queries
-        | _ -> ()
-    )
-    queries |> List.map (fun q -> NhibQuery (q, file.Path))
-
 let discoverRmUsedInNq (rm : ReadModel) (nq : NhibQuery) =
     let (NhibQuery (nqName, nqPath)) = nq
     let (ReadModel rmName) = rm

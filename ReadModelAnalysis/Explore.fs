@@ -6,9 +6,23 @@ open CodeDigest
 open AssemblyDigest
 open Discover
 
-type Expansion<'T> = { targets : 'T list; usages : Usage list }
+type Snapshot<'T> = { targets : 'T list; usages : Usage list }
 
-let _expand (targetCollection: 'T list) (seeds: 'U list) (discover: 'U -> 'T -> Usage option) : 'T Expansion =
+let usageStateReturn x = fun usages -> { targets = x; usages = usages }
+let usageStateBind f x =
+    fun usages ->
+        let { targets = targets'; usages = usages' } = x usages
+        let { targets = targets''; usages = usages'' } = f targets' usages'
+        {targets = targets''; usages = List.concat [usages'; usages'']}
+
+type UsageState() =
+    member this.Return(x) = usageStateReturn x
+    member this.Bind(x, f) = usageStateBind f x
+    member this.ReturnFrom(x) = x
+
+let usageState = new UsageState()
+
+let _explore (discover: 'U -> 'T -> Usage option) (seeds: 'U list) (targetCollection: 'T list) : Usage list -> 'T Snapshot =
     let needRecurse = typeof<'T> = typeof<'U>    
     let rec loop seeds' accTargets' accUsages'=
         let discoveredTargetUsages = 
@@ -20,83 +34,72 @@ let _expand (targetCollection: 'T list) (seeds: 'U list) (discover: 'U -> 'T -> 
             |> List.choose (
                 function (seed, target) -> discover seed target |> Option.map (fun x -> (target, x)))
         let cast = List.toSeq >> Seq.cast >> Seq.toList
-        let accUsages =  discoveredTargetUsages |> List.map snd |> List.append accUsages'  
-        let accTargets = discoveredTargetUsages |> List.map fst |> List.append accTargets'      
+        let accUsages =  discoveredTargetUsages |> List.map snd |> List.append accUsages'  |> List.distinct
+        let accTargets = discoveredTargetUsages |> List.map fst |> List.append accTargets' |> List.distinct     
         match discoveredTargetUsages, needRecurse with
         | [], _ -> accTargets, accUsages
         | _, false -> accTargets, accUsages
-        | _, true -> loop (discoveredTargetUsages |> List.map fst |> cast) accTargets accUsages
-    loop seeds [] [] |> function (ts', us') -> { targets = ts'; usages = us' }
+        | _, true -> 
+            let newSeeds = discoveredTargetUsages |> List.map fst |> cast |> List.where (fun x -> List.contains x seeds' |> not)
+            loop newSeeds accTargets accUsages
+    loop seeds [] [] |> function (ts', us') -> (fun usages -> { targets = ts'; usages = List.append usages us' })
 
-let expandSpFromRm (configValues : ConfigValues) (seeds: ReadModel list) =
-    let allTargets = 
-        scanStoredProcedureFiles configValues (
-            fun afile -> StoredProcedure ( afile.getShortName(), afile.Path) |> Some ) 
-    _expand allTargets seeds discoverRmUsedInSp
 
-let expandSpFromSp (configValues : ConfigValues) (seeds: StoredProcedure list) =
-    let allTargets = 
-        scanStoredProcedureFiles configValues (
-            fun spFile -> StoredProcedure ( spFile.getShortName(), spFile.Path) |> Some ) 
-    _expand allTargets seeds discoverSpUsedInSp
+let exploreSpFromRm configValues seeds  =
+    _explore discoverRmUsedInSp seeds <| getAllStoredProcedures configValues
 
-let closureOfSps (configValues : ConfigValues) (seeds: ReadModel list) =
-    let { targets = targets' ; usages = usages' } = expandSpFromRm configValues seeds
-    let { targets = targets''; usages = usages''} = expandSpFromSp configValues targets'
-    { targets = List.concat [targets'; targets'']; usages = List.append usages' usages''}   
+let exploreSpFromSp configValues seeds =
+    _explore discoverSpUsedInSp seeds <| getAllStoredProcedures configValues
 
-let expandNqFromRm (configValues : ConfigValues) (seeds: ReadModel list) =
-    let allTargets = 
-        scanNhibMappingFiles configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat
-    _expand allTargets seeds discoverRmUsedInNq
+let closureOfSps configValues seeds =
+    usageState {
+        let! sps' = exploreSpFromRm configValues seeds
+        return! exploreSpFromSp configValues sps'
+    }
 
-let closureOfNqs (configValues : ConfigValues) (seeds: ReadModel list) =
-    let { targets = targets' ; usages = usages' } = expandNqFromRm configValues seeds   
-    { targets = targets'; usages = usages'}   
+let exploreNqFromRm configValues seeds =
+    _explore discoverRmUsedInNq seeds <| getAllNhibQueries configValues
 
-let expandIcFromSp (configValues : ConfigValues) (seeds: StoredProcedure list) =
-    let allTargets = 
-        scanInfraClassFiles configValues (discoverClassInFile InfraClass >> Some) |> List.concat             
-    _expand allTargets seeds discoverSpUsedInIc
+let closureOfNqs configValues seeds =
+    exploreNqFromRm configValues seeds
 
-let expandIcFromRm (configValues : ConfigValues) (seeds: ReadModel list) =
-    let allTargets = 
-        scanInfraClassFiles configValues (discoverClassInFile InfraClass >> Some) |> List.concat             
-    _expand allTargets seeds discoverRmUsedInIc
+let exploreIcFromSp configValues seeds =
+    _explore discoverSpUsedInIc seeds <| getAllInfraClasses configValues
 
-let expandIcFromNq (configValues : ConfigValues) (seeds: NhibQuery list) =
-    let allTargets = 
-        scanInfraClassFiles configValues (discoverClassInFile InfraClass >> Some) |> List.concat             
-    _expand allTargets seeds discoverNqUsedInIc
+let exploreIcFromRm configValues seeds =
+    _explore discoverRmUsedInIc seeds <| getAllInfraClasses configValues
 
-let expandIcFromIc (configValues : ConfigValues) (seeds: InfraClass list) =
-    let allTargets = 
-        scanInfraClassFiles configValues (discoverClassInFile InfraClass >> Some) |> List.concat             
-    _expand allTargets seeds discoverIcUsedInIc
+let exploreIcFromNq configValues seeds =
+    _explore discoverNqUsedInIc seeds <| getAllInfraClasses configValues
 
-let expandEhcFromRm (configValues : ConfigValues) (seeds: ReadModel list) =                   
-    let allTargets = getAllEventHandlerClasses configValues            
-    _expand allTargets seeds discoverRmUsedInEh
+let exploreIcFromIc configValues seeds =
+    _explore discoverIcUsedInIc seeds <| getAllInfraClasses configValues
 
-let expandEhcFromSp (configValues : ConfigValues) (seeds: StoredProcedure list) =                   
-    let allTargets = getAllEventHandlerClasses configValues            
-    _expand allTargets seeds discoverSpUsedInEh
+let exploreEhcFromRm configValues seeds = 
+    _explore discoverRmUsedInEh seeds <| getAllEventHandlerClasses configValues
 
-let expandEhcFromNq (configValues : ConfigValues) (seeds: NhibQuery list) =                   
-    let allTargets = getAllEventHandlerClasses configValues            
-    _expand allTargets seeds discoverNqUsedInEh
+let exploreEhcFromSp configValues seeds =
+    _explore discoverSpUsedInEh seeds <| getAllEventHandlerClasses configValues
+    
 
-let expandIcFromEhc (configValues: ConfigValues) (seeds: EventHandlerClass list) =
-    let allTargets = 
-        scanInfraClassFiles configValues (discoverClassInFile InfraClass >> Some) |> List.concat             
-    _expand allTargets seeds discoverEhcHandlesIc
+let exploreEhcFromNq configValues seeds =
+    _explore discoverNqUsedInEh seeds <| getAllEventHandlerClasses configValues
+
+let exploreIcFromEhc configValues seeds =
+    _explore discoverEhcHandlesIc seeds <| getAllInfraClasses configValues
 
 let closureOfIcs (configValues : ConfigValues) (seeds: ReadModel list) =
-    let { targets = sps ; usages = spUsages } = closureOfSps configValues seeds
-    let { targets = nqs; usages = nqUsages} = closureOfNqs configValues seeds
-    let { targets = targets' ; usages = usages' } = expandIcFromRm configValues seeds
-    let { targets = targets''; usages = usages''} = expandIcFromSp configValues sps
-    let { targets = targets'''; usages = usages'''} = expandIcFromNq configValues nqs
-    let ics = List.concat [targets'; targets''; targets''']
-    let { targets = targets''''; usages = usages''''} = expandIcFromIc configValues ics
-    { targets = List.concat [ics; targets'''']; usages = List.concat [usages'; usages''; usages'''; usages'''']}   
+    usageState {
+        let! sps = closureOfSps configValues seeds
+        let! nqs = closureOfNqs configValues seeds
+        let! eh1 = exploreEhcFromRm configValues seeds
+        let! eh2 = exploreEhcFromSp configValues sps
+        let! eh3 = exploreEhcFromNq configValues nqs
+        let! ic1 = exploreIcFromRm configValues seeds
+        let! ic2 = exploreIcFromSp configValues sps
+        let! ic3 = exploreIcFromNq configValues nqs
+        let! ic4 = exploreIcFromEhc configValues <| List.concat [eh1; eh2; eh3]
+        let ic' = List.concat [ic1; ic2; ic3; ic4]
+        let! ic5 = exploreIcFromIc configValues ic'
+        return List.append ic' ic5
+    }          

@@ -193,31 +193,31 @@ let testTraceNextUsageForEventHandlingUsage =
 let testExpandSpFromRm =
     fun _ ->
         let rm = ReadModel "FindPerson"
-        expandSpFromRm configValues [rm]
+        exploreSpFromRm configValues [rm] []
 
 let testExpandSpFromSp =
     fun _ ->
         let allSps = 
             scanStoredProcedureFiles configValues (
                 fun spFile -> StoredProcedure ( spFile.getShortName(), spFile.Path) |> Some )                
-        expandSpFromSp configValues allSps
+        exploreSpFromSp configValues allSps []
 
 let testClosureOfSps =
     fun _ ->
         let rm = ReadModel "ScheduleProjectionReadOnly"
-        closureOfSps configValues [rm]
+        closureOfSps configValues [rm] []
 
 let testExpandEhcFromRm =
     fun _ ->
         let rm = ReadModel "FindPerson"
-        expandEhcFromRm configValues [rm]
+        exploreEhcFromRm configValues [rm] []
 
 let testClosureOfIc =
     fun _ ->
         let rm = ReadModel "FindPerson"
-        closureOfIcs configValues [rm]
+        closureOfIcs configValues [rm] []
 
 let testExpandIcFromSp =
     fun _ ->
         let sp = StoredProcedure ("ReadModel.PersonFinderWithCriteria", "C:\Teleopti\Database\TeleoptiCCC7\Programmability\03StoredProcedures\ReadModel.PersonFinderWithCriteria.sql")
-        expandIcFromSp configValues [sp]
+        exploreIcFromSp configValues [sp] []

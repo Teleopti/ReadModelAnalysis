@@ -112,6 +112,16 @@ let scanClassFiles (dir: Dir') (present : FilePresentation<'T>) : 'T list =
     dir.getFiles(isClassFile)
     |> List.choose present
 
+let discoverSqlQueryInNhibMapping (file : File') =
+    let mutable queries : string list = []
+    let lines = file.getLines() 
+    lines |> List.iter (
+        function
+        | SqlQueryTagStartPattern queryName -> queries <- queryName :: queries
+        | _ -> ()
+    )
+    queries |> List.map (fun q -> Domain.NhibQuery (q, file.Path))
+
 let discoverClassInFile (builder: string * string -> 'T) (file : File') =
     let mutable classes : string list = []
     let lines = file.getLines() 
@@ -121,3 +131,13 @@ let discoverClassInFile (builder: string * string -> 'T) (file : File') =
         | _ -> ()
     )
     classes |> List.map (fun c -> builder (c, file.Path))
+
+let getAllStoredProcedures configValues =
+    scanStoredProcedureFiles configValues (
+        fun afile -> Domain.StoredProcedure ( afile.getShortName(), afile.Path) |> Some)
+
+let getAllNhibQueries configValues =
+    scanNhibMappingFiles configValues (discoverSqlQueryInNhibMapping >> Some) |> List.concat
+
+let getAllInfraClasses configValues = 
+    scanInfraClassFiles configValues (discoverClassInFile Domain.InfraClass >> Some) |> List.concat
