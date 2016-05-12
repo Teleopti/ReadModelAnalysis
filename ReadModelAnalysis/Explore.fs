@@ -54,7 +54,8 @@ let exploreSpFromSp configValues seeds =
 let closureOfSps configValues seeds =
     usageState {
         let! sps' = exploreSpFromRm configValues seeds
-        return! exploreSpFromSp configValues sps'
+        let! sps'' = exploreSpFromSp configValues sps'
+        return List.append sps' sps''
     }
 
 let exploreNqFromRm configValues seeds =
