@@ -81,6 +81,32 @@ let _discoverSpUsedInClass (target: StoredProcedure ) (host, hostName, hostPath)
     | [] -> None
     | _ -> buildUsage { target = target; host = host; locs = _transformLocs locs'} |> Some
 
+let _expandMethodLocsInClass (host, hostName, hostPath) (locs: LocInfo list) =
+    let lines = File'.toFile'(hostPath : string).getLines()
+    let rec loop seedLocs accLocs =
+        let methodNames = seedLocs |> List.map (fun x -> x.hostLoc)
+        let seedMap = seedLocs |> List.map (fun x -> (x.hostLoc, x.targetLocs)) |> Map.ofList 
+        let mutable newLocs : LocInfo list = []
+        let mutable inClassBody = false
+        let mutable currentMethod = ""
+        lines |> List.iter ( 
+            function    
+            | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+            | MethodDefinitionPattern methodName ->
+                if (inClassBody)
+                then currentMethod <- methodName
+            | MethodInvocationPattern methodNames usedMethodName -> 
+                if (inClassBody)
+                then
+                    if (List.contains currentMethod methodNames |> not)
+                    then  
+                        newLocs <- { hostLoc = currentMethod; targetLocs = Map.find usedMethodName seedMap} :: newLocs                               
+            | _ -> ())  
+        match newLocs with
+        | [] -> accLocs
+        | _ -> loop newLocs (List.append accLocs newLocs)
+    loop locs locs
+
 let discoverSpUsedInDc (target : StoredProcedure) (host : DomainClass) =
     let hostTriple = host, Q.name host, Q.path host
     _discoverSpUsedInClass target hostTriple SpUsedInDc

@@ -71,6 +71,12 @@ let extractInterfacesFromString input =
     let matches = Regex.Matches(input, pattern);
     matches |> Seq.cast<Match> |> Seq.toList |> List.map (fun m -> m.Value)
 
+let (|MethodInvocationPattern|_|) (methodNames : string seq) line = 
+    let pattern = @"\b(?<methodName>" + String.Join("|", methodNames) + @")\b\s*[(]"
+    let matched = Regex.Match(line, pattern)
+    if matched.Success then Some(matched.Groups.["methodName"].Value) else None
+
+
 open IO
 open Config
     
