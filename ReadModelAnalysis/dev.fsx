@@ -204,7 +204,7 @@ let testExpandSpFromSp =
 
 let testClosureOfSps =
     fun _ ->
-        let rm = ReadModel "ScheduleProjectionReadOnly"
+        let rm = ReadModel "FindPerson"
         closureOfSps configValues [rm] []
 
 let testExpandEhcFromRm =

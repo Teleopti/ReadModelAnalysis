@@ -13,7 +13,7 @@ let usageStateBind f x =
     fun usages ->
         let { targets = targets'; usages = usages' } = x usages
         let { targets = targets''; usages = usages'' } = f targets' usages'
-        {targets = targets''; usages = List.concat [usages'; usages'']}
+        {targets = targets''; usages = List.concat [usages'; usages''] |> List.distinct}
 
 type UsageState() =
     member this.Return(x) = usageStateReturn x
@@ -24,7 +24,7 @@ let usageState = new UsageState()
 
 let _explore (discover: 'U -> 'T -> Usage option) (seeds: 'U list) (targetCollection: 'T list) : Usage list -> 'T Snapshot =
     let needRecurse = typeof<'T> = typeof<'U>    
-    let rec loop seeds' accTargets' accUsages'=
+    let rec loop seeds' accTargets' accUsages'= 
         let discoveredTargetUsages = 
             [
                 for seed in seeds' do
@@ -35,14 +35,15 @@ let _explore (discover: 'U -> 'T -> Usage option) (seeds: 'U list) (targetCollec
                 function (seed, target) -> discover seed target |> Option.map (fun x -> (target, x)))
         let cast = List.toSeq >> Seq.cast >> Seq.toList
         let accUsages =  discoveredTargetUsages |> List.map snd |> List.append accUsages'  |> List.distinct
-        let accTargets = discoveredTargetUsages |> List.map fst |> List.append accTargets' |> List.distinct     
+        let accTargets = discoveredTargetUsages |> List.map fst |> List.append accTargets' |> List.distinct
         match discoveredTargetUsages, needRecurse with
         | [], _ -> accTargets, accUsages
         | _, false -> accTargets, accUsages
         | _, true -> 
             let newSeeds = discoveredTargetUsages |> List.map fst |> cast |> List.where (fun x -> List.contains x seeds' |> not)
             loop newSeeds accTargets accUsages
-    loop seeds [] [] |> function (ts', us') -> (fun usages -> { targets = ts'; usages = List.append usages us' })
+    loop seeds [] [] 
+    |> function (ts', us') -> (fun usages -> { targets = ts'; usages = us' })
 
 
 let exploreSpFromRm configValues seeds  =
