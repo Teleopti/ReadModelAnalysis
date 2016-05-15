@@ -58,6 +58,7 @@ type Usage =
     | SpUsedInEh of UseInfo<StoredProcedure, EventHandlerClass>
     | IcUsedInEh of UseInfo<InfraClass, EventHandlerClass>
     | DcUsedInEh of UseInfo<DomainClass, EventHandlerClass>
+    | WcUsedInEh of UseInfo<WebClass, EventHandlerClass>
    
     // Event handling usage
     | EhcHandlesIc of EhandleInfo<InfraClass>
@@ -144,6 +145,7 @@ let traceNextUsage (usage : Usage) =
     | DcUsedInWc { target = target; host = host; locs = locs } ->
          (function
             | WcUsedInWc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | WcUsedInEh { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it           
             | _ -> None)
     | DcUsedInDc { target = target; host = host; locs = locs } ->
          (function
@@ -154,10 +156,12 @@ let traceNextUsage (usage : Usage) =
     | IcUsedInWc { target = target; host = host; locs = locs } ->
          (function
             | WcUsedInWc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | WcUsedInEh { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | _ -> None)
     | WcUsedInWc { target = target; host = host; locs = locs } ->
          (function
             | WcUsedInWc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | WcUsedInEh { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | _ -> None)
     | RmUsedInEh { target = target; host = host; locs = locs } ->
          (function
@@ -179,7 +183,7 @@ let traceNextUsage (usage : Usage) =
             | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
             | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
             | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it  
-            | _ -> None)                                                                                                                               
+            | _ -> None)                                                                                                                                      
     | IcUsedInEh { target = target; host = host; locs = locs } ->                                                                                      
          (function                                                                                                                                     
             | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
@@ -189,6 +193,13 @@ let traceNextUsage (usage : Usage) =
             | _ -> None)                                                                                                                               
     | DcUsedInEh { target = target; host = host; locs = locs } ->                                                                                      
          (function                                                                                                                                     
+            | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | _ -> None)
+    | WcUsedInEh { target = target; host = host; locs = locs } -> 
+        (function                                                                                                                                     
             | EhcHandlesIc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
             | EhcHandlesDc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
             | EhcHandlesWc { handler = handler'; publisher = publisher'; locs = locs' } as it when host = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
@@ -209,7 +220,8 @@ let traceNextUsage (usage : Usage) =
             | _ -> None)
     | EhcHandlesWc { handler = handler; publisher = publisher; locs = locs } ->
          (function
-            | WcUsedInWc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | WcUsedInWc { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | WcUsedInEh { target = target'; host = host'; locs = locs' } as it when publisher = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | _ -> None)
     | EhcHandlesEhc { handler = handler; publisher = publisher; locs = locs } ->
         (function                                                                                                                                     

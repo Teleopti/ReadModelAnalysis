@@ -219,7 +219,7 @@ let testClosureOfIc =
 
 let testExpandIcFromSp =
     fun _ ->
-        let sp = StoredProcedure ("ReadModel.PersonFinderWithCriteria", "C:\Teleopti\Database\TeleoptiCCC7\Programmability\03StoredProcedures\ReadModel.PersonFinderWithCriteria.sql")
+        let sp = StoredProcedure ("ReadModel.PersonFinderWithCriteria", @"C:\Teleopti\Database\TeleoptiCCC7\Programmability\03StoredProcedures\ReadModel.PersonFinderWithCriteria.sql")
         exploreIcFromSp configValues [sp] []
 
 let testDiscoverSpUsedInEh =
@@ -232,3 +232,16 @@ let testDiscoverSpUsedInEh =
                     yield (sp, ehc)
         ]
         |> List.choose (fun (sp, ehc) -> discoverSpUsedInEh sp ehc)
+
+let testDiscoverIcUsedInEh =
+    fun _ ->
+        let ic = InfraClass ("PersonScheduleDayReadModelPersister", @"C:\Teleopti\Infrastructure\Repositories\PersonScheduleDayReadModelPersister.cs")
+        getAllEventHandlerClasses configValues
+        |> List.choose (fun ehc -> discoverIcUsedInEh ic ehc)
+
+let testDiscoverDcUsedInEh =
+    fun _ ->
+        let dc = DomainClass ("PersonScheduleDayReadModelsCreator", @"C:\Teleopti\Domain\ApplicationLayer\ScheduleChangedEventHandlers\PersonScheduleDayReadModel\PersonScheduleDayReadModelsCreator.cs")
+        getAllEventHandlerClasses configValues
+        |> List.choose (fun ehc -> discoverDcUsedInEh dc ehc)
+

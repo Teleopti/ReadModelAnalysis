@@ -176,28 +176,41 @@ let _discoverClassInterfacesForClassFile (className: string) (file : File') : st
             | _ ->  extractClassDefinitionStatement lines' (classDefinitionStatement + line)                      
     let classDefinitionStatement = extractClassDefinitionStatement classDefinitionLines ""
     extractInterfacesFromString classDefinitionStatement
-   
-let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, hostPath) =
+
+let _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath) =
     let iocTypes = targetName :: (_discoverClassInterfacesForClassFile targetName <| File'.toFile' (targetPath : string))
     let lines = File'.toFile'(hostPath : string).getLines() 
-    let mutable locs' : List<string * string> = []
     let mutable inClassBody = false
-    let mutable instanceName = "DummyNonExistentInstance"
-    let mutable currentMethod = "" 
+    let mutable instanceNameOption : string option = None
     lines |> List.iter ( 
         function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
-        | MethodDefinitionPattern methodName ->
-            if (inClassBody)
-            then currentMethod <- methodName
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName               
         | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
             if (inClassBody)
-            then instanceName <- instanceName' 
-        | InstanceMethodInvocation instanceName invocationName ->
-            if (inClassBody)
-            then locs' <- (currentMethod, invocationName) :: locs'           
+            then instanceNameOption <- Some instanceName'           
         | _ -> ())
-    locs'    
+    instanceNameOption    
+   
+let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, hostPath) =
+    let lines = File'.toFile'(hostPath : string).getLines() 
+    let instanceNameOption = _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
+    match instanceNameOption with
+    | None -> []
+    | Some instanceName ->  
+        let mutable locs' : List<string * string> = []
+        let mutable inClassBody = false
+        let mutable currentMethod = ""       
+        lines |> List.iter ( 
+            function    
+            | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+            | MethodDefinitionPattern methodName ->
+                if (inClassBody)
+                then currentMethod <- methodName
+            | InstanceMethodInvocation instanceName invocationName ->
+                if (inClassBody)
+                then locs' <- (currentMethod, invocationName) :: locs'           
+            | _ -> ())
+        locs'    
 
 let discoverDcUsedInDc (target : DomainClass) (host: DomainClass) =
     if (target = host)
@@ -384,3 +397,45 @@ let discoverNqUsedInEh (target : NhibQuery) (host: EventHandlerClass) =
     |> function 
         | [] -> None 
         | _ as locs -> NqUsedInEh { target = target; host = host; locs = locs } |> Some    
+
+let discoverIcUsedInEh (target : InfraClass) (host: EventHandlerClass) =
+    let hostName, hostPath = Q.name host, Q.path host
+    let targetName, targetPath = Q.name target, Q.path target  
+    _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
+    |> Option.map (fun instanceName ->
+        let parseTargetInLine = 
+            function 
+            | InstanceMethodInvocation instanceName invocationName -> Some invocationName 
+            | _ -> None 
+        _discoverUsageInEhc target (host, hostName, hostPath) parseTargetInLine 
+        |> function 
+            | [] -> None 
+            | _ as locs -> IcUsedInEh { target = target; host = host; locs = locs } |> Some)
+
+let discoverDcUsedInEh (target : DomainClass) (host: EventHandlerClass) =
+    let hostName, hostPath = Q.name host, Q.path host
+    let targetName, targetPath = Q.name target, Q.path target  
+    _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
+    |> Option.map (fun instanceName ->
+        let parseTargetInLine = 
+            function 
+            | InstanceMethodInvocation instanceName invocationName -> Some invocationName 
+            | _ -> None 
+        _discoverUsageInEhc target (host, hostName, hostPath) parseTargetInLine 
+        |> function 
+            | [] -> None 
+            | _ as locs -> DcUsedInEh { target = target; host = host; locs = locs } |> Some)
+
+let discoverWcUsedInEh (target : WebClass) (host: EventHandlerClass) =
+    let hostName, hostPath = Q.name host, Q.path host
+    let targetName, targetPath = Q.name target, Q.path target  
+    _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
+    |> Option.map (fun instanceName ->
+        let parseTargetInLine = 
+            function 
+            | InstanceMethodInvocation instanceName invocationName -> Some invocationName 
+            | _ -> None 
+        _discoverUsageInEhc target (host, hostName, hostPath) parseTargetInLine 
+        |> function 
+            | [] -> None 
+            | _ as locs -> WcUsedInEh { target = target; host = host; locs = locs } |> Some)
