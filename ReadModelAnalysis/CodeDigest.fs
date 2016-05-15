@@ -40,10 +40,13 @@ let (|MethodDefinitionPattern|_|) line =
     if matched.Success then Some(matched.Groups.["methodName"].Value) else None
 
 let (|InterfaceOrClassInstancePattern|_|) inames line = 
-    let wrapped = "(" + String.Join("|", inames |> Seq.map (fun x -> Regex.Escape(x))) + ")"
-    let pattern = @"^\s*(?:(public|protected|private|readonly|static)\s+)+" + wrapped + @"\s+(?<instanceName>\w+)\b\s*;"
-    let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
-    if matched.Success then Some(matched.Groups.["instanceName"].Value) else None
+    match inames with 
+    | [] -> None
+    | _ -> 
+        let wrapped = "(" + String.Join("|", inames |> List.map (fun x -> Regex.Escape(x))) + ")"
+        let pattern = @"^\s*(?:(public|protected|private|readonly|static)\s+)+" + wrapped + @"\s+(?<instanceName>\w+)\b\s*;"
+        let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
+        if matched.Success then Some(matched.Groups.["instanceName"].Value) else None
 
 let (|InstanceMethodInvocation|_|) instanceName line = 
     let pattern = @"\b" + Regex.Escape(instanceName ) + @"\.(?<methodName>\w+)"  + @"\b\s*\("
@@ -55,11 +58,14 @@ let (|NamespacePattern|_|) line =
     let matched = Regex.Match(line, pattern)
     if matched.Success then Some(matched.Groups.["namespace"].Value) else None
 
-let (|PublishEventPattern|_|) enames line = 
-    let wrapped = "(?<eventName>" + String.Join("|", enames |> Seq.map (fun x -> Regex.Escape(x))) + ")"
-    let pattern = @"\bnew\s+" + wrapped + @"\b"
-    let matched = Regex.Match(line, pattern)
-    if matched.Success then Some(matched.Groups.["eventName"].Value) else None
+let (|PublishEventPattern|_|) enames line =
+    match enames with
+    | [] -> None
+    | _ -> 
+        let wrapped = "(?<eventName>" + String.Join("|", enames |> List.map (fun x -> Regex.Escape(x))) + ")"
+        let pattern = @"\bnew\s+" + wrapped + @"\b"
+        let matched = Regex.Match(line, pattern)
+        if matched.Success then Some(matched.Groups.["eventName"].Value) else None
 
 let (|HandleMethodDefinitionPattern|_|) line = 
     let pattern = @"(?:(public|protected|private|static|virtual|override)\s+)+void\s+Handle\s*\(\s*(?<eventType>\w+)\s+"
@@ -71,10 +77,13 @@ let extractInterfacesFromString input =
     let matches = Regex.Matches(input, pattern);
     matches |> Seq.cast<Match> |> Seq.toList |> List.map (fun m -> m.Value)
 
-let (|MethodInvocationPattern|_|) (methodNames : string seq) line = 
-    let pattern = @"\b(?<methodName>" + String.Join("|", methodNames) + @")\b\s*[(]"
-    let matched = Regex.Match(line, pattern)
-    if matched.Success then Some(matched.Groups.["methodName"].Value) else None
+let (|MethodInvocationPattern|_|) (methodNames : string list) line = 
+    match methodNames with
+    | [] -> None
+    | _ ->
+        let pattern = @"\b(?<methodName>" + String.Join("|", methodNames) + @")\b\s*[(]"
+        let matched = Regex.Match(line, pattern)
+        if matched.Success then Some(matched.Groups.["methodName"].Value) else None
 
 
 open IO

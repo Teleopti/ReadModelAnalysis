@@ -221,3 +221,14 @@ let testExpandIcFromSp =
     fun _ ->
         let sp = StoredProcedure ("ReadModel.PersonFinderWithCriteria", "C:\Teleopti\Database\TeleoptiCCC7\Programmability\03StoredProcedures\ReadModel.PersonFinderWithCriteria.sql")
         exploreIcFromSp configValues [sp] []
+
+let testDiscoverSpUsedInEh =
+    fun _ ->
+        let sps = getAllStoredProcedures configValues
+        let ehcs = getAllEventHandlerClasses configValues
+        [
+            for sp in sps do
+                for ehc in ehcs do
+                    yield (sp, ehc)
+        ]
+        |> List.choose (fun (sp, ehc) -> discoverSpUsedInEh sp ehc)

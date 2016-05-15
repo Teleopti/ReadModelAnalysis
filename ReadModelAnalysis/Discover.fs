@@ -61,26 +61,6 @@ let discoverRmUsedInIc (rm : ReadModel) (ic : InfraClass) =
     | [] -> None
     | _ -> RmUsedInIc { target = rm; host = ic; locs = _transformLocs locs'} |> Some
 
-let _discoverSpUsedInClass (target: StoredProcedure ) (host, hostName, hostPath) (buildUsage: UseInfo<StoredProcedure, 'U> -> Usage) = 
-    let (StoredProcedure (spName, spPath)) = target
-    let lines = File'.toFile'(hostPath : string).getLines() 
-    let mutable locs' : List<string * string> = []
-    let mutable inClassBody = false
-    let mutable currentMethod = ""
-    lines |> List.iter ( 
-        function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
-        | MethodDefinitionPattern methodName ->
-            if (inClassBody)
-            then currentMethod <- methodName
-        | StoredProcedurePattern spName _ -> 
-            if (inClassBody)
-            then  locs' <- (currentMethod, spName) :: locs'           
-        | _ -> ())   
-    match locs' with
-    | [] -> None
-    | _ -> buildUsage { target = target; host = host; locs = _transformLocs locs'} |> Some
-
 let _expandMethodLocsInClass (host, hostName, hostPath) (locs: LocInfo list) =
     let lines = File'.toFile'(hostPath : string).getLines()
     let rec loop seedLocs accLocs =
@@ -106,6 +86,29 @@ let _expandMethodLocsInClass (host, hostName, hostPath) (locs: LocInfo list) =
         | [] -> accLocs
         | _ -> loop newLocs (List.append accLocs newLocs)
     loop locs locs
+
+let _discoverSpUsedInClass (target: StoredProcedure ) (host, hostName, hostPath) (buildUsage: UseInfo<StoredProcedure, 'U> -> Usage) = 
+    let (StoredProcedure (spName, spPath)) = target
+    let lines = File'.toFile'(hostPath : string).getLines() 
+    let mutable locs' : List<string * string> = []
+    let mutable inClassBody = false
+    let mutable currentMethod = ""
+    lines |> List.iter ( 
+        function    
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | MethodDefinitionPattern methodName ->
+            if (inClassBody)
+            then currentMethod <- methodName
+        | StoredProcedurePattern spName _ -> 
+            if (inClassBody)
+            then  locs' <- (currentMethod, spName) :: locs'           
+        | _ -> ())   
+    match locs' with
+    | [] -> None
+    | _ -> buildUsage { target = target; host = host; 
+        locs = _transformLocs locs' |> _expandMethodLocsInClass (host, hostName, hostPath)} |> Some
+
+
 
 let discoverSpUsedInDc (target : StoredProcedure) (host : DomainClass) =
     let hostTriple = host, Q.name host, Q.path host
@@ -149,7 +152,8 @@ let _discoverNqUsedInClass (target : NhibQuery) (host, hostName, hostPath) (buil
         | _ -> ())   
     match locs' with
     | [] -> None
-    | _ -> buildUsage { target = target; host = host; locs = _transformLocs locs'} |> Some
+    | _ -> buildUsage { target = target; host = host; 
+        locs = _transformLocs locs' |> _expandMethodLocsInClass (host, hostName, hostPath) } |> Some
 
 let discoverNqUsedInDc (target : NhibQuery) (host: DomainClass) =
     let hostTriple = host, Q.name host, Q.path host
@@ -173,7 +177,7 @@ let _discoverClassInterfacesForClassFile (className: string) (file : File') : st
     let classDefinitionStatement = extractClassDefinitionStatement classDefinitionLines ""
     extractInterfacesFromString classDefinitionStatement
    
-let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, hostPath) (buildUsage: UseInfo<'T, 'U> -> Usage) =
+let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, hostPath) =
     let iocTypes = targetName :: (_discoverClassInterfacesForClassFile targetName <| File'.toFile' (targetPath : string))
     let lines = File'.toFile'(hostPath : string).getLines() 
     let mutable locs' : List<string * string> = []
@@ -192,10 +196,8 @@ let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, 
         | InstanceMethodInvocation instanceName invocationName ->
             if (inClassBody)
             then locs' <- (currentMethod, invocationName) :: locs'           
-        | _ -> ())   
-    match locs' with
-    | [] -> None
-    | _ -> buildUsage {target = target; host = host; locs = _transformLocs locs'} |> Some
+        | _ -> ())
+    locs'    
 
 let discoverDcUsedInDc (target : DomainClass) (host: DomainClass) =
     if (target = host)
@@ -203,15 +205,22 @@ let discoverDcUsedInDc (target : DomainClass) (host: DomainClass) =
     else
         let targetTriple = target, Q.name target, Q.path target
         let hostTriple = host, Q.name host, Q.path host
-        _discoverClassUsedInClass targetTriple hostTriple DcUsedInDc
-
+        _discoverClassUsedInClass targetTriple hostTriple 
+        |> function
+            | [] -> None
+            | _ as locs' -> DcUsedInDc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
+                
 let discoverIcUsedInIc (target : InfraClass) (host: InfraClass) =
     if (target = host)
     then None
     else
         let targetTriple = target, Q.name target, Q.path target
         let hostTriple = host, Q.name host, Q.path host
-        _discoverClassUsedInClass targetTriple hostTriple IcUsedInIc
+        _discoverClassUsedInClass targetTriple hostTriple 
+        |> function
+            | [] -> None
+            | _ as locs' -> IcUsedInIc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
+        
 
 let discoverWcUsedInWc (target : WebClass) (host: WebClass) =
     if (target = host)
@@ -219,22 +228,34 @@ let discoverWcUsedInWc (target : WebClass) (host: WebClass) =
     else 
         let targetTriple = target, Q.name target, Q.path target
         let hostTriple = host, Q.name host, Q.path host
-        _discoverClassUsedInClass targetTriple hostTriple WcUsedInWc
-
+        _discoverClassUsedInClass targetTriple hostTriple
+        |> function
+            | [] -> None
+            | _ as locs' -> WcUsedInWc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
+         
 let discoverIcUsedInDc (target : InfraClass) (host: DomainClass) =   
     let targetTriple = target, Q.name target, Q.path target
     let hostTriple = host, Q.name host, Q.path host
-    _discoverClassUsedInClass targetTriple hostTriple IcUsedInDc
+    _discoverClassUsedInClass targetTriple hostTriple
+    |> function
+        | [] -> None
+        | _ as locs' -> IcUsedInDc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
 
 let discoverDcUsedInWc (target : DomainClass) (host: WebClass) =  
     let targetTriple = target, Q.name target, Q.path target
     let hostTriple = host, Q.name host, Q.path host
-    _discoverClassUsedInClass targetTriple hostTriple DcUsedInWc 
+    _discoverClassUsedInClass targetTriple hostTriple
+    |> function
+        | [] -> None
+        | _ as locs' -> DcUsedInWc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
 
 let discoverIcUsedInWc (target : InfraClass) (host: WebClass) =   
     let targetTriple = target, Q.name target, Q.path target
     let hostTriple = host, Q.name host, Q.path host
-    _discoverClassUsedInClass targetTriple hostTriple IcUsedInWc
+    _discoverClassUsedInClass targetTriple hostTriple
+     |> function
+        | [] -> None
+        | _ as locs' -> IcUsedInWc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
 
 let _discoverEventsPublishInClass (es : EventClass list) (host, hostName, hostPath) =
     let enames = es |> List.map (function EventClass ename -> ename)
@@ -260,7 +281,8 @@ let _discoverEhcHandlesClass (target: EventHandlerClass) (host, hostName, hostPa
     let publishLocs' = _discoverEventsPublishInClass (Q.events target) (host, hostName, hostPath)               
     publishLocs' 
     |> Option.map (fun locs' ->
-        buildUsage {handler = target; publisher = host; locs = _transformLocs locs'})
+        buildUsage {handler = target; publisher = host; 
+            locs = _transformLocs locs' |> _expandMethodLocsInClass (host, hostName, hostPath) })
    
 let discoverEhcHandlesIc (target: EventHandlerClass) (host: InfraClass) =
      let hostTriple = host, Q.name host, Q.path host
@@ -274,6 +296,55 @@ let discoverEhcHandlesWc (target: EventHandlerClass) (host: WebClass) =
     let hostTriple = host, Q.name host, Q.path host
     _discoverEhcHandlesClass target hostTriple EhcHandlesWc
 
+let _discoverUsageInEhc target (host, hostName, hostPath) (parseTargetInLine : string -> string option) =
+    let lines = File'.toFile'(hostPath : string).getLines()
+    let rec loop parseTargetInLine' seedLocs accLocs =
+        let methodNames = seedLocs |> List.map fst
+        let seedMap = seedLocs |> Map.ofList 
+        let mutable nonhandleLocs : List<string * string> = []
+        let mutable handleLocs : List<string * string> = []
+        let mutable inClassBody = false
+        let mutable currentHandleEvent = "" 
+        let mutable currentNonhandleMethod = ""
+        let mutable inHandleMethod = false
+        lines |> List.iter ( 
+            function    
+            | ClassDefinitionPattern className -> inClassBody <- className = hostName
+            | HandleMethodDefinitionPattern eventName ->
+                if (inClassBody)
+                then
+                    inHandleMethod <- true 
+                    currentHandleEvent <- eventName
+            | MethodDefinitionPattern methodName ->
+                if (inClassBody)
+                then
+                    inHandleMethod <- false
+                    currentNonhandleMethod <- methodName
+            | MethodInvocationPattern methodNames usedMethodName -> 
+                match inClassBody, inHandleMethod with
+                | false, _ -> ()
+                | true, true ->
+                    handleLocs <- 
+                        (currentHandleEvent, Map.find usedMethodName seedMap ) :: handleLocs
+                | true, false ->
+                    if List.contains currentNonhandleMethod methodNames |> not
+                    then nonhandleLocs <- (currentNonhandleMethod, Map.find usedMethodName seedMap) :: nonhandleLocs               
+            | _ as line -> 
+                match parseTargetInLine' line with
+                | None -> ()
+                | Some result -> 
+                    match inClassBody, inHandleMethod with
+                    | false, _ -> ()
+                    | true, true ->
+                        handleLocs <- (currentHandleEvent, result) :: handleLocs
+                    | true, false ->
+                        nonhandleLocs <- (currentNonhandleMethod, result):: nonhandleLocs 
+        )
+        match nonhandleLocs with
+        | [] -> List.append accLocs handleLocs
+        | _ -> loop (fun _ -> None)  nonhandleLocs (List.append accLocs handleLocs)
+    loop parseTargetInLine [] [] |> _transformLocs   
+
 let discoverEhcHandlesEhc (target: EventHandlerClass) (host: EventHandlerClass) =
     if (target = host)
     then None
@@ -281,83 +352,35 @@ let discoverEhcHandlesEhc (target: EventHandlerClass) (host: EventHandlerClass) 
         let targetName, targetPath, targetEvents = Q.name target, Q.path target, Q.events target
         let targetEnames = targetEvents |> List.map (function EventClass ename -> ename)
         let hostName, hostPath = Q.name host, Q.path host
-        let lines = File'.toFile'(hostPath : string).getLines() 
-        let mutable locs' : List<string * string> = []
-        let mutable inClassBody = false
-        let mutable currentHandleEvent = "" 
-        lines |> List.iter ( 
-            function    
-            | ClassDefinitionPattern className -> inClassBody <- className = hostName       
-            | HandleMethodDefinitionPattern eventName ->
-                if (inClassBody)
-                then currentHandleEvent <- eventName
-            | PublishEventPattern targetEnames eventName ->
-                if (inClassBody)
-                then locs' <- (currentHandleEvent, eventName) :: locs'                 
-            | _ -> ())   
-        match locs' with
-        | [] -> None
-        | _ -> EhcHandlesEhc { handler = target; publisher = host; locs = _transformLocs locs' } |> Some
-
-let discoverRmUsedInEh (target : ReadModel) (host : EventHandlerClass) =
-    let hostName, hostPath, hostEvents = Q.name host, Q.path host, Q.events host
+        let parseTargetInLine = function | PublishEventPattern targetEnames eventName -> Some eventName | _ -> None
+        _discoverUsageInEhc target (host, hostName, hostPath) parseTargetInLine 
+        |> function 
+            | [] -> None 
+            | _ as locs -> EhcHandlesEhc { handler = target; publisher = host; locs = locs } |> Some
+        
+let discoverRmUsedInEh (target : ReadModel) (host : EventHandlerClass) =   
+    let hostName, hostPath = Q.name host, Q.path host  
     let targetName = Q.name target
-    let lines = File'.toFile'(hostPath : string).getLines() 
-    let mutable locs' : List<string * string> = []
-    let mutable inClassBody = false
-    let mutable currentHandleEvent = "" 
-    lines |> List.iter ( 
-        function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
-        | HandleMethodDefinitionPattern eventName ->
-                if (inClassBody)
-                then currentHandleEvent <- eventName
-        | ReadModelPattern targetName _ -> 
-            if (inClassBody)
-            then  locs' <- (currentHandleEvent, targetName) :: locs'           
-        | _ -> ())   
-    match locs' with
-    | [] -> None
-    | _ -> RmUsedInEh { target = target; host = host; locs = _transformLocs locs'} |> Some
-
+    let parseTargetInLine = function | ReadModelPattern targetName _ -> Some targetName | _ -> None 
+    _discoverUsageInEhc target (host, hostName, hostPath) parseTargetInLine 
+    |> function 
+        | [] -> None 
+        | _ as locs -> RmUsedInEh { target = target; host = host; locs = locs } |> Some
+      
 let discoverSpUsedInEh (target : StoredProcedure) (host : EventHandlerClass) =
-    let hostName, hostPath, hostEvents = Q.name host, Q.path host, Q.events host
+    let hostName, hostPath = Q.name host, Q.path host  
     let targetName = Q.name target
-    let lines = File'.toFile'(hostPath : string).getLines() 
-    let mutable locs' : List<string * string> = []
-    let mutable inClassBody = false
-    let mutable currentHandleEvent = ""
-    lines |> List.iter ( 
-        function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
-        | HandleMethodDefinitionPattern eventName ->
-                if (inClassBody)
-                then currentHandleEvent <- eventName
-        | StoredProcedurePattern targetName _ -> 
-            if (inClassBody)
-            then  locs' <- (currentHandleEvent, targetName) :: locs'           
-        | _ -> ())   
-    match locs' with
-    | [] -> None
-    | _ -> SpUsedInEh { target = target; host = host; locs = _transformLocs locs'} |> Some
-
+    let parseTargetInLine = function | StoredProcedurePattern targetName _ -> Some targetName | _ -> None 
+    _discoverUsageInEhc target (host, hostName, hostPath) parseTargetInLine 
+    |> function 
+        | [] -> None 
+        | _ as locs -> SpUsedInEh { target = target; host = host; locs = locs } |> Some
+       
 let discoverNqUsedInEh (target : NhibQuery) (host: EventHandlerClass) =
-    let hostName, hostPath, hostEvents = Q.name host, Q.path host, Q.events host
-    let (NhibQuery (targetName, targetPath)) = target
-    let lines = File'.toFile'(hostPath : string).getLines() 
-    let mutable locs' : List<string * string> = []
-    let mutable inClassBody = false
-    let mutable currentHandleEvent = ""
-    lines |> List.iter ( 
-        function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
-        | HandleMethodDefinitionPattern eventName ->
-                if (inClassBody)
-                then currentHandleEvent <- eventName
-        | NhibQueryPattern targetName _ -> 
-            if (inClassBody)
-            then  locs' <- (currentHandleEvent, targetName) :: locs'           
-        | _ -> ())   
-    match locs' with
-    | [] -> None
-    | _ -> NqUsedInEh { target = target; host = host; locs = _transformLocs locs'} |> Some
+    let hostName, hostPath = Q.name host, Q.path host  
+    let targetName = Q.name target
+    let parseTargetInLine = function | NhibQueryPattern targetName _ -> Some targetName | _ -> None 
+    _discoverUsageInEhc target (host, hostName, hostPath) parseTargetInLine 
+    |> function 
+        | [] -> None 
+        | _ as locs -> NqUsedInEh { target = target; host = host; locs = locs } |> Some    
