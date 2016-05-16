@@ -49,7 +49,8 @@ let discoverRmUsedInIc (rm : ReadModel) (ic : InfraClass) =
     let mutable currentMethod = ""
     lines |> List.iter ( 
         function    
-        | ClassDefinitionPattern className -> inClassBody <- className = icName       
+        | ClassDefinitionPattern className -> inClassBody <- className = icName
+        | InterfaceDefinitionPattern interfaceName -> inClassBody <- false       
         | MethodDefinitionPattern methodName ->
             if (inClassBody)
             then currentMethod <- methodName
@@ -71,7 +72,8 @@ let _expandMethodLocsInClass (host, hostName, hostPath) (locs: LocInfo list) =
         let mutable currentMethod = ""
         lines |> List.iter ( 
             function    
-            | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+            | ClassDefinitionPattern className -> inClassBody <- className = hostName
+            | InterfaceDefinitionPattern interfaceName -> inClassBody <- false       
             | MethodDefinitionPattern methodName ->
                 if (inClassBody)
                 then currentMethod <- methodName
@@ -79,9 +81,10 @@ let _expandMethodLocsInClass (host, hostName, hostPath) (locs: LocInfo list) =
                 if (inClassBody)
                 then
                     if (List.contains currentMethod methodNames |> not)
-                    then  
+                    then
+                        // printfn "mm %s %s" currentMethod usedMethodName                        
                         newLocs <- { hostLoc = currentMethod; targetLocs = Map.find usedMethodName seedMap} :: newLocs                               
-            | _ -> ())  
+            | _ -> ())        
         match newLocs with
         | [] -> accLocs
         | _ -> loop newLocs (List.append accLocs newLocs)
@@ -95,7 +98,8 @@ let _discoverSpUsedInClass (target: StoredProcedure ) (host, hostName, hostPath)
     let mutable currentMethod = ""
     lines |> List.iter ( 
         function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName 
+        | InterfaceDefinitionPattern interfaceName -> inClassBody <- false      
         | MethodDefinitionPattern methodName ->
             if (inClassBody)
             then currentMethod <- methodName
@@ -105,10 +109,9 @@ let _discoverSpUsedInClass (target: StoredProcedure ) (host, hostName, hostPath)
         | _ -> ())   
     match locs' with
     | [] -> None
-    | _ -> buildUsage { target = target; host = host; 
-        locs = _transformLocs locs' |> _expandMethodLocsInClass (host, hostName, hostPath)} |> Some
-
-
+    | _ -> 
+        buildUsage { target = target; host = host; 
+            locs = _transformLocs locs' |> _expandMethodLocsInClass (host, hostName, hostPath)} |> Some
 
 let discoverSpUsedInDc (target : StoredProcedure) (host : DomainClass) =
     let hostTriple = host, Q.name host, Q.path host
@@ -142,18 +145,20 @@ let _discoverNqUsedInClass (target : NhibQuery) (host, hostName, hostPath) (buil
     let mutable currentMethod = ""
     lines |> List.iter ( 
         function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName
+        | InterfaceDefinitionPattern interfaceName -> inClassBody <- false       
         | MethodDefinitionPattern methodName ->
             if (inClassBody)
             then currentMethod <- methodName
-        | NhibQueryPattern targetName _ -> 
+        | NhibQueryPattern targetName _ ->            
             if (inClassBody)
             then  locs' <- (currentMethod, targetName) :: locs'           
         | _ -> ())   
     match locs' with
     | [] -> None
-    | _ -> buildUsage { target = target; host = host; 
-        locs = _transformLocs locs' |> _expandMethodLocsInClass (host, hostName, hostPath) } |> Some
+    | _ ->        
+        buildUsage { target = target; host = host; 
+            locs = _transformLocs locs' |> _expandMethodLocsInClass (host, hostName, hostPath) } |> Some
 
 let discoverNqUsedInDc (target : NhibQuery) (host: DomainClass) =
     let hostTriple = host, Q.name host, Q.path host
@@ -184,7 +189,8 @@ let _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, 
     let mutable instanceNameOption : string option = None
     lines |> List.iter ( 
         function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName               
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName
+        | InterfaceDefinitionPattern interfaceName -> inClassBody <- false               
         | InterfaceOrClassInstancePattern iocTypes instanceName' -> 
             if (inClassBody)
             then instanceNameOption <- Some instanceName'           
@@ -192,6 +198,7 @@ let _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, 
     instanceNameOption    
    
 let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, hostPath) =
+    // printfn "-- %s %s" targetName hostName
     let lines = File'.toFile'(hostPath : string).getLines() 
     let instanceNameOption = _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
     match instanceNameOption with
@@ -202,7 +209,8 @@ let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, 
         let mutable currentMethod = ""       
         lines |> List.iter ( 
             function    
-            | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+            | ClassDefinitionPattern className -> inClassBody <- className = hostName
+            | InterfaceDefinitionPattern interfaceName -> inClassBody <- false       
             | MethodDefinitionPattern methodName ->
                 if (inClassBody)
                 then currentMethod <- methodName
@@ -210,6 +218,7 @@ let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, 
                 if (inClassBody)
                 then locs' <- (currentMethod, invocationName) :: locs'           
             | _ -> ())
+        // printfn "++ %A" locs'
         locs'    
 
 let discoverDcUsedInDc (target : DomainClass) (host: DomainClass) =
@@ -254,6 +263,15 @@ let discoverIcUsedInDc (target : InfraClass) (host: DomainClass) =
         | [] -> None
         | _ as locs' -> IcUsedInDc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
 
+let discoverDcUsedInIc (target : DomainClass) (host: InfraClass) =   
+    let targetTriple = target, Q.name target, Q.path target
+    let hostTriple = host, Q.name host, Q.path host
+    _discoverClassUsedInClass targetTriple hostTriple
+    |> function
+        | [] -> None
+        | _ as locs' -> DcUsedInIc {target = target; host = host; locs = _transformLocs locs' |> _expandMethodLocsInClass hostTriple } |> Some
+
+
 let discoverDcUsedInWc (target : DomainClass) (host: WebClass) =  
     let targetTriple = target, Q.name target, Q.path target
     let hostTriple = host, Q.name host, Q.path host
@@ -278,7 +296,8 @@ let _discoverEventsPublishInClass (es : EventClass list) (host, hostName, hostPa
     let mutable currentMethod = "" 
     lines |> List.iter ( 
         function    
-        | ClassDefinitionPattern className -> inClassBody <- className = hostName       
+        | ClassDefinitionPattern className -> inClassBody <- className = hostName
+        | InterfaceDefinitionPattern interfaceName -> inClassBody <- false       
         | MethodDefinitionPattern methodName ->
             if (inClassBody)
             then currentMethod <- methodName
@@ -323,6 +342,7 @@ let _discoverUsageInEhc target (host, hostName, hostPath) (parseTargetInLine : s
         lines |> List.iter ( 
             function    
             | ClassDefinitionPattern className -> inClassBody <- className = hostName
+            | InterfaceDefinitionPattern interfaceName -> inClassBody <- false
             | HandleMethodDefinitionPattern eventName ->
                 if (inClassBody)
                 then

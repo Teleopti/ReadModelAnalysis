@@ -29,13 +29,18 @@ let (|ClassDefinitionPattern|_|) line =
     let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
     if matched.Success then Some(matched.Groups.["className"].Value) else None
 
+let (|InterfaceDefinitionPattern|_|) line = 
+    let pattern = @"^\s*(?:(public|protected|private|static)\s+)+interface\s+(?<interfaceName>\w+)"
+    let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
+    if matched.Success then Some(matched.Groups.["interfaceName"].Value) else None
+
 let (|BlockStartPattern|_|) line = 
     let pattern = @"{\s*$"
     let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
     if matched.Success then Some(line) else None
 
 let (|MethodDefinitionPattern|_|) line = 
-    let pattern = @"(?:(public|protected|private|static|virtual|override)\s+)+(?<returnType>\w+(?:<\w+>)?)\s+(?<methodName>\w+)\s*\("
+    let pattern = @"(?:(public|protected|private|static|virtual|override)\s+)+(?<returnType>\w+(?:<.+>)?)\s+(?<methodName>\w+)\s*\("
     let matched = Regex.Match(line, pattern, RegexOptions.IgnoreCase)
     if matched.Success then Some(matched.Groups.["methodName"].Value) else None
 
@@ -81,7 +86,7 @@ let (|MethodInvocationPattern|_|) (methodNames : string list) line =
     match methodNames with
     | [] -> None
     | _ ->
-        let pattern = @"\b(?<methodName>" + String.Join("|", methodNames) + @")\b\s*[(]"
+        let pattern = @"(?<=\s)(?<methodName>" + String.Join("|", methodNames) + @")\b\s*[(]"
         let matched = Regex.Match(line, pattern)
         if matched.Success then Some(matched.Groups.["methodName"].Value) else None
 
@@ -156,3 +161,9 @@ let getAllNhibQueries configValues =
 
 let getAllInfraClasses configValues = 
     scanInfraClassFiles configValues (discoverClassInFile Domain.InfraClass >> Some) |> List.concat
+
+let getAllReadModels =
+    ["AdherenceDetails"; "AdherencePercentage"; "FindPerson"; "GroupingReadOnly"; "PersonScheduleDay";
+        "PersonScheduleProjectionLoadTime"; "ScheduleDay"; "ScheduleProjectionReadOnly";
+        "SiteOutOfAdherence"; "TeamOutOfAdherence"; ]
+    |> List.map Domain.ReadModel

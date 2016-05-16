@@ -57,6 +57,8 @@
     <Compile Include="Explore.fs" />
     <Compile Include="Program.fs" />
     <None Include="dev.fsx" />
+    <None Include="devCodeDigest.fsx" />
+    <None Include="devDiscover.fsx" />
     <None Include="App.config" />
   </ItemGroup>
   <PropertyGroup>

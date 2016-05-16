@@ -54,3 +54,11 @@ let getAllEventHandlerClasses (configValues : ConfigValues) =
                     let events = es |> List.map EventClass 
                     EventHandlerClass (t.Name, domainClassTypeToPath configValues t, events) |> Some)                   
     scanDomainClasses configValues getEventHandlerType        
+
+let getAllDomainClasses configValues = 
+    let handlerClassReps = getAllEventHandlerClasses configValues |> List.map (fun x -> Q.name x, Q.path x)
+    scanDomainClassFiles configValues (discoverClassInFile Domain.DomainClass >> Some)     
+    |> List.concat
+    |> List.where (fun x ->
+        let rep = (Q.name x, Q.path x) 
+        List.contains rep handlerClassReps |> not)

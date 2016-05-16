@@ -222,6 +222,11 @@ let testExpandIcFromSp =
         let sp = StoredProcedure ("ReadModel.PersonFinderWithCriteria", @"C:\Teleopti\Database\TeleoptiCCC7\Programmability\03StoredProcedures\ReadModel.PersonFinderWithCriteria.sql")
         exploreIcFromSp configValues [sp] []
 
+let testClosureOfIc2 = 
+    fun _ ->
+        let rm = ReadModel "ScheduleProjectionReadOnly"
+        closureOfIcs configValues [rm] []
+
 let testDiscoverSpUsedInEh =
     fun _ ->
         let sps = getAllStoredProcedures configValues

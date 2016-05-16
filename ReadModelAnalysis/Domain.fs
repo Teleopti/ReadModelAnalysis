@@ -51,6 +51,7 @@ type Usage =
     | NqUsedInIc of UseInfo<NhibQuery, InfraClass>
     | DcUsedInWc of UseInfo<DomainClass, WebClass>
     | DcUsedInDc of UseInfo<DomainClass, DomainClass>
+    | DcUsedInIc of UseInfo<DomainClass, InfraClass>
     | IcUsedInWc of UseInfo<InfraClass, WebClass>
     | WcUsedInWc of UseInfo<WebClass, WebClass>
     | RmUsedInEh of UseInfo<ReadModel, EventHandlerClass>
@@ -152,6 +153,13 @@ let traceNextUsage (usage : Usage) =
             | DcUsedInWc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | DcUsedInDc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | DcUsedInEh { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it           
+            | _ -> None)
+    | DcUsedInIc { target = target; host = host; locs = locs } ->
+         (function
+            | IcUsedInIc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
+            | IcUsedInDc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
+            | IcUsedInWc { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
+            | IcUsedInEh { target = target'; host = host'; locs = locs' } as it when host = target' && nextUsageUseAvailableLocs locs' locs -> Some it
             | _ -> None)
     | IcUsedInWc { target = target; host = host; locs = locs } ->
          (function
