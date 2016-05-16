@@ -391,7 +391,7 @@ let discoverEhcHandlesEhc (target: EventHandlerClass) (host: EventHandlerClass) 
             | [] -> None 
             | _ as locs -> EhcHandlesEhc { handler = target; publisher = host; locs = locs } |> Some
         
-let discoverRmUsedInEh (target : ReadModel) (host : EventHandlerClass) =   
+let discoverRmUsedInEhc (target : ReadModel) (host : EventHandlerClass) =   
     let hostName, hostPath = Q.name host, Q.path host  
     let targetName = Q.name target
     let parseTargetInLine = function | ReadModelPattern targetName _ -> Some targetName | _ -> None 
@@ -400,7 +400,7 @@ let discoverRmUsedInEh (target : ReadModel) (host : EventHandlerClass) =
         | [] -> None 
         | _ as locs -> RmUsedInEh { target = target; host = host; locs = locs } |> Some
       
-let discoverSpUsedInEh (target : StoredProcedure) (host : EventHandlerClass) =
+let discoverSpUsedInEhc (target : StoredProcedure) (host : EventHandlerClass) =
     let hostName, hostPath = Q.name host, Q.path host  
     let targetName = Q.name target
     let parseTargetInLine = function | StoredProcedurePattern targetName _ -> Some targetName | _ -> None 
@@ -409,7 +409,7 @@ let discoverSpUsedInEh (target : StoredProcedure) (host : EventHandlerClass) =
         | [] -> None 
         | _ as locs -> SpUsedInEh { target = target; host = host; locs = locs } |> Some
        
-let discoverNqUsedInEh (target : NhibQuery) (host: EventHandlerClass) =
+let discoverNqUsedInEhc (target : NhibQuery) (host: EventHandlerClass) =
     let hostName, hostPath = Q.name host, Q.path host  
     let targetName = Q.name target
     let parseTargetInLine = function | NhibQueryPattern targetName _ -> Some targetName | _ -> None 
@@ -418,11 +418,11 @@ let discoverNqUsedInEh (target : NhibQuery) (host: EventHandlerClass) =
         | [] -> None 
         | _ as locs -> NqUsedInEh { target = target; host = host; locs = locs } |> Some    
 
-let discoverIcUsedInEh (target : InfraClass) (host: EventHandlerClass) =
+let discoverIcUsedInEhc (target : InfraClass) (host: EventHandlerClass) =
     let hostName, hostPath = Q.name host, Q.path host
     let targetName, targetPath = Q.name target, Q.path target  
     _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
-    |> Option.map (fun instanceName ->
+    |> Option.bind (fun instanceName ->
         let parseTargetInLine = 
             function 
             | InstanceMethodInvocation instanceName invocationName -> Some invocationName 
@@ -432,11 +432,11 @@ let discoverIcUsedInEh (target : InfraClass) (host: EventHandlerClass) =
             | [] -> None 
             | _ as locs -> IcUsedInEh { target = target; host = host; locs = locs } |> Some)
 
-let discoverDcUsedInEh (target : DomainClass) (host: EventHandlerClass) =
+let discoverDcUsedInEhc (target : DomainClass) (host: EventHandlerClass) =
     let hostName, hostPath = Q.name host, Q.path host
     let targetName, targetPath = Q.name target, Q.path target  
     _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
-    |> Option.map (fun instanceName ->
+    |> Option.bind (fun instanceName ->
         let parseTargetInLine = 
             function 
             | InstanceMethodInvocation instanceName invocationName -> Some invocationName 
@@ -446,11 +446,11 @@ let discoverDcUsedInEh (target : DomainClass) (host: EventHandlerClass) =
             | [] -> None 
             | _ as locs -> DcUsedInEh { target = target; host = host; locs = locs } |> Some)
 
-let discoverWcUsedInEh (target : WebClass) (host: EventHandlerClass) =
+let discoverWcUsedInEhc (target : WebClass) (host: EventHandlerClass) =
     let hostName, hostPath = Q.name host, Q.path host
     let targetName, targetPath = Q.name target, Q.path target  
     _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
-    |> Option.map (fun instanceName ->
+    |> Option.bind (fun instanceName ->
         let parseTargetInLine = 
             function 
             | InstanceMethodInvocation instanceName invocationName -> Some invocationName 

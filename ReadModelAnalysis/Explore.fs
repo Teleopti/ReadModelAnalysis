@@ -78,24 +78,45 @@ let exploreIcFromNq configValues seeds =
 let exploreIcFromIc configValues seeds =
     _explore discoverIcUsedInIc seeds <| getAllInfraClasses configValues
 
+let exploreIcFromDc configValues seeds =
+    _explore discoverDcUsedInIc seeds <| getAllInfraClasses configValues
+
 let exploreDcFromSp configValues seeds =
     _explore discoverSpUsedInDc seeds <| getAllDomainClasses configValues
 
 let exploreDcFromNq configValues seeds =
     _explore discoverNqUsedInDc seeds <| getAllDomainClasses configValues
 
+let exploreDcFromIc configValues seeds =
+    _explore discoverIcUsedInDc seeds <| getAllDomainClasses configValues
+
+let exploreDcFromDc configValues seeds =
+    _explore discoverDcUsedInDc seeds <| getAllDomainClasses configValues
+
+
 let exploreEhcFromRm configValues seeds = 
-    _explore discoverRmUsedInEh seeds <| getAllEventHandlerClasses configValues
+    _explore discoverRmUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
 let exploreEhcFromSp configValues seeds =
-    _explore discoverSpUsedInEh seeds <| getAllEventHandlerClasses configValues
-    
+    _explore discoverSpUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
 let exploreEhcFromNq configValues seeds =
-    _explore discoverNqUsedInEh seeds <| getAllEventHandlerClasses configValues
+    _explore discoverNqUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
 let exploreIcFromEhc configValues seeds =
     _explore discoverEhcHandlesIc seeds <| getAllInfraClasses configValues
+
+let exploreDcFromEhc configValues seeds =
+    _explore discoverEhcHandlesDc seeds <| getAllDomainClasses configValues
+
+let exploreEhcFromIc configValues seeds =
+    _explore discoverIcUsedInEhc seeds <| getAllEventHandlerClasses configValues
+
+let exploreEhcFromDc configValues seeds =
+    _explore discoverDcUsedInEhc seeds <| getAllEventHandlerClasses configValues
+
+let exploreEhcFromEhc configValues seeds =
+    _explore discoverEhcHandlesEhc seeds <| getAllEventHandlerClasses configValues
 
 let closureOfIcs (configValues : ConfigValues) (seeds: ReadModel list) =
     usageState {
@@ -113,7 +134,7 @@ let closureOfIcs (configValues : ConfigValues) (seeds: ReadModel list) =
         return List.append ic' ic5
     }          
 
-let fluxOfIcs configValues (seeds: ReadModel list) = 
+let inputOfIcs configValues (seeds: ReadModel list) = 
     usageState {
         let! sps = closureOfSps configValues seeds
         let! nqs = closureOfNqs configValues seeds        
@@ -123,49 +144,53 @@ let fluxOfIcs configValues (seeds: ReadModel list) =
         return List.concat [ic1; ic2; ic3 ] |> List.distinct        
     } 
 
-// [Todo] fix explore and fix usages 
-let equilibrateIcEhDc configValues icsState dcsState ehsState =
+let equilibrateIcEhDc configValues icsState dcsState ehcsState =
     let merge3 = fun (x, y, z) -> List.concat [x; y; z] |> List.distinct 
-    let diff = fun (x, y, z, o) -> merge3 x,y,z |> List.where (fun e -> List.contains e o |> not)
+    let diff = fun (x, y, z, o) -> merge3 (x,y,z) |> List.where (fun e -> List.contains e o |> not)
     let appendState = fun s1 s2 -> 
         usageState { 
             let! s1' = s1
             let! s2' = s2 
             return List.append s1' s2'
         }
-
-    let rec loop (seedIcs, accIcs) (seedDcs, accDcs) (seedEhs, accEhs) =
+    let rec loop (seedIcs, accIcs) (seedDcs, accDcs) (seedEhcs, accEhcs) =
         let deltaIcs =
             usageState {
                 let! ics = accIcs
                 let! ics0 = seedIcs
+                let! dcs0 = seedDcs
+                let! ehcs0 = seedEhcs
                 let! ics1 = exploreIcFromIc configValues ics0
                 let! ics2 = exploreIcFromDc configValues dcs0
-                let! ics3 = exploreIcFromEh configValues ehs0
+                let! ics3 = exploreIcFromEhc configValues ehcs0
                 return diff(ics1, ics2, ics3, ics)               
+            }       
+        let deltaDcs =
+            usageState {
+                let! dcs = accDcs
+                let! ics0 = seedIcs
+                let! dcs0 = seedDcs
+                let! ehcs0 = seedEhcs
+                let! dcs1 = exploreDcFromIc configValues ics0
+                let! dcs2 = exploreDcFromDc configValues dcs0
+                let! dcs3 = exploreDcFromEhc configValues ehcs0
+                return diff(dcs1, dcs2, dcs3, dcs)    
             }
         let deltaEhs =
             usageState {
-                let! ehs = allDcs
-                let! ehs0 = seedDcs
-                let! ehs1 = exploreEhFromIc configValues ics0
-                let! ehs2 = exploreEhFromEh configValues ehs0
-                let! ehs3 = exploreEhFromDc configValues dcs0
-                return diff(ehs1, ehs2, ehs3, ehs)         
-            }
-        let deltaDcs =
-            usageState {
-                let! dcs = allDcs
-                let! dcs0 = seedEhs
-                let! dcs1 = exploreDcFromIc configValues ics0
-                let! dcs2 = exploreDcFromDc configValues dcs0
-                let! dcs3 = exploreDcFromEh configValues ehs0
-                return diff(dcs1, dcs2, dcs3, dcs)    
+                let! ehcs = accEhcs
+                let! ics0 = seedIcs
+                let! dcs0 = seedDcs
+                let! ehcs0 = seedEhcs
+                let! ehcs1 = exploreEhcFromIc configValues ics0
+                let! ehcs2 = exploreEhcFromEhc configValues ehcs0
+                let! ehcs3 = exploreEhcFromDc configValues dcs0
+                return diff(ehcs1, ehcs2, ehcs3, ehcs)         
             }
         let hasDelta =
             [
-                getStateTargets deltaIcs |> List.length,
-                getStateTargets deltaEhs |> List.length,
+                getStateTargets deltaIcs |> List.length;
+                getStateTargets deltaEhs |> List.length;
                 getStateTargets deltaDcs |> List.length
             ]
             |> List.sum |> (<>) 0
@@ -173,7 +198,7 @@ let equilibrateIcEhDc configValues icsState dcsState ehsState =
         then
             loop (deltaIcs, appendState accIcs deltaIcs)
                  (deltaDcs, appendState accDcs deltaDcs)
-                 (deltaEhs, appendState accEhs deltaEhs)
+                 (deltaEhs, appendState accEhcs deltaEhs)
         else
-            accIcs, accDcs, accEhs
-    loop (icsState, icsState) (dcsState, dcsState) (ehsState, ehsState)    
+            accIcs, accDcs, accEhcs
+    loop (icsState, icsState) (dcsState, dcsState) (ehcsState, ehcsState)    

@@ -5,12 +5,12 @@
       <File FileName="ReadModelAnalysis/Discover.fs" Line="1" Column="1" />
       <File FileName="ReadModelAnalysis/Domain.fs" Line="1" Column="1" />
       <File FileName="ReadModelAnalysis/IO.fs" Line="1" Column="1" />
-      <File FileName="ReadModelAnalysis/dev.fsx" Line="59" Column="32" />
+      <File FileName="ReadModelAnalysis/dev.fsx" Line="1" Column="1" />
       <File FileName="ReadModelAnalysis/CodeDigest.fs" Line="1" Column="1" />
       <File FileName="ReadModelAnalysis/AssemblyDigest.fs" Line="1" Column="1" />
       <File FileName="ReadModelAnalysis/Config.fs" Line="1" Column="1" />
-      <File FileName="ReadModelAnalysis/Explore.fs" Line="27" Column="48" />
-      <File FileName="ReadModelAnalysis/ReadModelAnalysis.fsproj" Line="45" Column="23" />
+      <File FileName="ReadModelAnalysis/Explore.fs" Line="1" Column="1" />
+      <File FileName="ReadModelAnalysis/ReadModelAnalysis.fsproj" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
