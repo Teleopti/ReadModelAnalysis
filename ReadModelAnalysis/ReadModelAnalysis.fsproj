@@ -59,6 +59,7 @@
     <None Include="dev.fsx" />
     <None Include="devCodeDigest.fsx" />
     <None Include="devDiscover.fsx" />
+    <None Include="devExplore.fsx" />
     <None Include="App.config" />
   </ItemGroup>
   <PropertyGroup>

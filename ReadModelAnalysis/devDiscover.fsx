@@ -54,7 +54,7 @@ let testDiscoverRmUsedInEhc =
                 for rm in rms do
                     yield (c, rm)
         ]
-        |> List.choose (fun (c, rm) -> discoverRmUsedInEh rm c)
+        |> List.choose (fun (c, rm) -> discoverRmUsedInEhc rm c)
 
 let testDiscoverSpUsedInEhc =
     fun () ->
@@ -65,7 +65,7 @@ let testDiscoverSpUsedInEhc =
                 for sp in sps do
                     yield (c, sp)
         ]
-        |> List.choose (fun (c, sp) -> discoverSpUsedInEh sp c)
+        |> List.choose (fun (c, sp) -> discoverSpUsedInEhc sp c)
 
 let testDiscoverNqUsedInEhc =
     fun () ->
@@ -76,7 +76,7 @@ let testDiscoverNqUsedInEhc =
                 for q in qs do
                     yield (c, q)
         ]
-        |> List.choose (fun (c, q) -> discoverNqUsedInEh q c)
+        |> List.choose (fun (c, q) -> discoverNqUsedInEhc q c)
 
 let testDiscoverIcUsedInDc =
     fun () ->
