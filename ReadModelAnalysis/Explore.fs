@@ -75,12 +75,10 @@ let exploreIcFromRm configValues seeds =
 let exploreIcFromNq configValues seeds =
     _explore discoverNqUsedInIc seeds <| getAllInfraClasses configValues
 
-let exploreIcFromIc configValues seeds =
-    printfn "@@ exploreIcFromIc %A " seeds
+let exploreIcFromIc configValues seeds =   
     _explore discoverIcUsedInIc seeds <| getAllInfraClasses configValues
 
 let exploreIcFromDc configValues seeds =
-    printfn "@@ exploreIcFromDc %A " seeds
     _explore discoverDcUsedInIc seeds <| getAllInfraClasses configValues
 
 let exploreDcFromSp configValues seeds =
@@ -90,11 +88,9 @@ let exploreDcFromNq configValues seeds =
     _explore discoverNqUsedInDc seeds <| getAllDomainClasses configValues
 
 let exploreDcFromIc configValues seeds =
-    printfn "@@ exploreDcFromIc %A " seeds
     _explore discoverIcUsedInDc seeds <| getAllDomainClasses configValues
 
 let exploreDcFromDc configValues seeds =
-    printfn "@@ exploreDcFromDc %A " seeds
     _explore discoverDcUsedInDc seeds <| getAllDomainClasses configValues
 
 
@@ -108,23 +104,18 @@ let exploreEhcFromNq configValues seeds =
     _explore discoverNqUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
 let exploreIcFromEhc configValues seeds =
-    printfn "@@ exploreIcFromEhc %A " seeds
     _explore discoverEhcHandlesIc seeds <| getAllInfraClasses configValues
 
 let exploreDcFromEhc configValues seeds =
-    printfn "@@ exploreDcFromEhc %A " seeds
     _explore discoverEhcHandlesDc seeds <| getAllDomainClasses configValues
 
 let exploreEhcFromIc configValues seeds =
-    printfn "@@ exploreEhcFromIc %A " seeds
     _explore discoverIcUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
 let exploreEhcFromDc configValues seeds =
-    printfn "@@ exploreEhcFromDc %A " seeds
     _explore discoverDcUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
 let exploreEhcFromEhc configValues seeds =
-    printfn "@@ exploreEhcFromEhc %A " seeds
     _explore discoverEhcHandlesEhc seeds <| getAllEventHandlerClasses configValues
 
 let closureOfIcs (configValues : ConfigValues) (seeds: ReadModel list) =
@@ -158,7 +149,6 @@ let equilibrateIcEhDc configValues ics dcs ehcs =
     let diff = fun (x, y, z, o) -> merge3 (x,y,z) |> List.where (fun e -> List.contains e o |> not)
 
     let rec loop (seedIcs, accIcs) (seedDcs, accDcs) (seedEhcs, accEhcs) usages =
-        printfn "----- loop usages %A" usages
         let deltaIcs =
             usageState {
                 let! ics1 = exploreIcFromIc configValues seedIcs
