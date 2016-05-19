@@ -14,7 +14,14 @@ open AssemblyDigest
 open Discover
 open Explore
 
-let testFluxOfIcs = 
+let testClosureOfIcs = 
     fun _ ->
         let rm = ReadModel "ScheduleProjectionReadOnly"
         closureOfIcs configValues [rm] []
+
+let testEquilibrateIcEhcDc =
+    fun _ ->
+        let rm = ReadModel "ScheduleProjectionReadOnly"
+        let ics = inputOfIcs configValues [rm]  |> getStateTargets                
+        let accIcs, accDcs, accEhcs, usages = equilibrateIcEhDc configValues ics [] [] []
+        (accIcs, accDcs, accEhcs, usages)
