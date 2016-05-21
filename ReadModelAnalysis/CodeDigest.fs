@@ -162,6 +162,9 @@ let getAllNhibQueries configValues =
 let getAllInfraClasses configValues = 
     scanInfraClassFiles configValues (discoverClassInFile Domain.InfraClass >> Some) |> List.concat
 
+let getAllWebClasses configValues =
+    scanWebClassFiles configValues (discoverClassInFile Domain.WebClass >> Some) |> List.concat
+
 let getAllReadModels =
     ["AdherenceDetails"; "AdherencePercentage"; "FindPerson"; "GroupingReadOnly"; "PersonScheduleDay";
         "PersonScheduleProjectionLoadTime"; "ScheduleDay"; "ScheduleProjectionReadOnly";

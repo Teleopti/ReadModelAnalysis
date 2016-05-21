@@ -69,6 +69,16 @@ type Usage =
 
 type UsageChain = Usage list
 
+let startingUsageOfRm (rm: ReadModel) (usageCollection : Usage list) =
+    let filter =
+        function 
+        | RmUsedInSp { target = target } -> target = rm
+        | RmUsedInIc { target = target } -> target = rm
+        | RmUsedInNq { target = target } -> target = rm
+        | RmUsedInEh { target = target } -> target = rm
+        | _ -> false
+    usageCollection |> List.where filter
+
 let traceNextUsage (usage : Usage) =
     let nextUsageUseAvailableLocs locsNext locs =
         let availables = locs |> List.map (fun loc -> loc.hostLoc ) 
@@ -239,7 +249,6 @@ let traceNextUsage (usage : Usage) =
             | EhcHandlesEhc { handler = handler'; publisher = publisher'; locs = locs' } as it when publisher = handler' && nextUsageUseAvailableLocs locs' locs -> Some it           
             | _ -> None) 
 
-
 let traceUsageChain (startingUsage : Usage) (usageCollection : Usage list) : UsageChain list =
     let growOneStep (revChains : UsageChain list) =
         let mutable stagnated = true
@@ -263,7 +272,5 @@ let traceUsageChain (startingUsage : Usage) (usageCollection : Usage list) : Usa
     loop false [[startingUsage]]
     |> List.map (fun revChain -> List.rev revChain)
      
-
-            
 // https://github.com/tpetricek/Documents/blob/master/Talks%202011/Data%20Access%20(GOTO%20Copenhagen)/GotoDemos/XmlStructural/FSharpWeb.Core/StructuralXml.fs#L68  
 

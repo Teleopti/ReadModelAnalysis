@@ -93,7 +93,6 @@ let exploreDcFromIc configValues seeds =
 let exploreDcFromDc configValues seeds =
     _explore discoverDcUsedInDc seeds <| getAllDomainClasses configValues
 
-
 let exploreEhcFromRm configValues seeds = 
     _explore discoverRmUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
@@ -116,23 +115,19 @@ let exploreEhcFromDc configValues seeds =
     _explore discoverDcUsedInEhc seeds <| getAllEventHandlerClasses configValues
 
 let exploreEhcFromEhc configValues seeds =
-    _explore discoverEhcHandlesEhc seeds <| getAllEventHandlerClasses configValues
+    _explore discoverEhcHandlesEhc seeds <| getAllEventHandlerClasses configValues         
 
-let closureOfIcs (configValues : ConfigValues) (seeds: ReadModel list) =
-    usageState {
-        let! sps = closureOfSps configValues seeds
-        let! nqs = closureOfNqs configValues seeds        
-        let! eh1 = exploreEhcFromRm configValues seeds
-        let! eh2 = exploreEhcFromSp configValues sps
-        let! eh3 = exploreEhcFromNq configValues nqs
-        let! ic1 = exploreIcFromRm configValues seeds
-        let! ic2 = exploreIcFromSp configValues sps
-        let! ic3 = exploreIcFromNq configValues nqs
-        let! ic4 = exploreIcFromEhc configValues <| List.concat [eh1; eh2; eh3]
-        let ic' = List.concat [ic1; ic2; ic3; ic4] |> List.distinct
-        let! ic5 = exploreIcFromIc configValues ic'
-        return List.append ic' ic5
-    }          
+let exploreWcFromIc configValues seeds =
+    _explore discoverIcUsedInWc seeds <| getAllWebClasses configValues
+
+let exploreWcFromDc configValues seeds =
+    _explore discoverDcUsedInWc seeds <| getAllWebClasses configValues
+
+let exploreWcFromWc configValues seeds =
+    _explore discoverWcUsedInWc seeds <| getAllWebClasses configValues
+
+let exploreWcFromEhc configValues seeds =
+    _explore discoverEhcHandlesWc seeds <| getAllWebClasses configValues
 
 let inputOfIcs configValues (seeds: ReadModel list) = 
     usageState {
@@ -144,32 +139,31 @@ let inputOfIcs configValues (seeds: ReadModel list) =
         return List.concat [ic1; ic2; ic3 ] |> List.distinct        
     } 
 
-let equilibrateIcEhDc configValues ics dcs ehcs =
-    let merge3 = fun (x, y, z) -> List.concat [x; y; z] |> List.distinct 
-    let diff = fun (x, y, z, o) -> merge3 (x,y,z) |> List.where (fun e -> List.contains e o |> not)
+let _merge3 = fun (x, y, z) -> List.concat [x; y; z] |> List.distinct 
+let _diff = fun (x, y, z, o) -> _merge3 (x,y,z) |> List.where (fun e -> List.contains e o |> not)
 
+let equilibrateIcEhDc configValues ics dcs ehcs =   
     let rec loop (seedIcs, accIcs) (seedDcs, accDcs) (seedEhcs, accEhcs) usages =
         let deltaIcs =
             usageState {
                 let! ics1 = exploreIcFromIc configValues seedIcs
                 let! ics2 = exploreIcFromDc configValues seedDcs
                 let! ics3 = exploreIcFromEhc configValues seedEhcs
-                return diff(ics1, ics2, ics3, accIcs)               
+                return _diff(ics1, ics2, ics3, accIcs)               
             }         
         let deltaDcs =
             usageState {
                 let! dcs1 = exploreDcFromIc configValues seedIcs
                 let! dcs2 = exploreDcFromDc configValues seedDcs
                 let! dcs3 = exploreDcFromEhc configValues seedEhcs
-                let oo = diff(dcs1, dcs2, dcs3, accDcs)   
-                return oo
+                return _diff(dcs1, dcs2, dcs3, accDcs)
             }          
         let deltaEhcs =
             usageState {
                 let! ehcs1 = exploreEhcFromIc configValues seedIcs
                 let! ehcs2 = exploreEhcFromDc configValues seedDcs
                 let! ehcs3 = exploreEhcFromEhc configValues seedEhcs
-                return diff(ehcs1, ehcs2, ehcs3, accEhcs)         
+                return _diff(ehcs1, ehcs2, ehcs3, accEhcs)         
             }
         let icSnapshot = deltaIcs usages
         let dcSnapshot = deltaDcs icSnapshot.usages
@@ -185,3 +179,31 @@ let equilibrateIcEhDc configValues ics dcs ehcs =
         else
             accIcs, accDcs, accEhcs, usages
     loop (ics, ics) (dcs, dcs) (ehcs, ehcs)
+
+let inputOfWcs configValues ics dcs ehcs =
+     usageState {
+        let! wcs1 = exploreWcFromIc configValues ics
+        let! wcs2 = exploreWcFromDc configValues dcs
+        let! wcs3 = exploreWcFromEhc configValues ehcs
+        return _merge3(wcs1, wcs2, wcs3)
+    }
+   
+let equilibrateWc configValues wcs =    
+    let rec loop (seedWcs, accWcs) usages =
+        let deltaWcs =
+            usageState {
+                let! wcs1 = exploreWcFromWc configValues seedWcs
+                return wcs1 |> List.where (fun c -> List.contains c accWcs |> not)
+            }
+        let wcSnapshot = deltaWcs usages
+        match wcSnapshot.targets with
+        | [] -> accWcs, usages
+        | _ -> loop (wcSnapshot.targets, List.append accWcs wcSnapshot.targets) wcSnapshot.usages
+    loop (wcs, wcs) 
+    
+let closureOfWc configValues rms us =
+    let snapshotIcs = inputOfIcs configValues rms us
+    let (ics, dcs, ehcs, usages) = equilibrateIcEhDc configValues snapshotIcs.targets [] [] snapshotIcs.usages
+    let snapshotWcs = inputOfWcs configValues ics dcs ehcs usages 
+    equilibrateWc configValues snapshotWcs.targets snapshotWcs.usages
+    |> fun (targets, usages) -> {targets = targets; usages = usages}

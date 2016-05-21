@@ -11,11 +11,12 @@ let _loadDomain (config : ConfigValues) =
     Assembly.LoadFrom(config.pathToDomainAssembly)
 
 let checkEventHandlerType (t : Type) =
-    let signature = @"IHandleEvent`1"    
+    let signature1 = @"IHandleEvent`1"
+    let signature2 = @"IHandle`1"    
     let events =
         t.GetInterfaces()
         |> Seq.choose (fun i ->
-            if (i.Name = signature)
+            if (i.Name = signature1 || i.Name = signature2)
             then i.GetGenericArguments().[0].Name |> Some
             else None)
         |> Seq.toList

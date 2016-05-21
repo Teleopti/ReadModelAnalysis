@@ -152,3 +152,9 @@ let testDiscoverDcUsedInIc =
                     printfn "-- %d" progress
                 discoverDcUsedInIc dc ic)
         |> Seq.take 10
+
+let testDiscoverEhcHandlesEhc2 =
+    fun _ ->
+        let ehc1 = EventHandlerClass ("AnalyticsScheduleChangeUpdater", @"C:\Teleopti\Domain\ApplicationLayer\ScheduleChangedEventHandlers\Analytics\AnalyticsScheduleChangeUpdater.cs", [EventClass "ProjectionChangedEvent"]);
+        let ehc2 = EventHandlerClass ("ProjectionChangedEventPublisherBus", @"C:\Teleopti\Domain\ApplicationLayer\ScheduleChangedEventHandlers\ProjectionChangedEventPublisher.cs", [EventClass("ScheduleChangedEvent"); EventClass("ScheduleInitializeTriggeredEventForScheduleProjection"); EventClass("ScheduleInitializeTriggeredEventForScheduleDay"); EventClass("ScheduleInitializeTriggeredEventForPersonScheduleDay")])
+        discoverEhcHandlesEhc ehc1 ehc2 
