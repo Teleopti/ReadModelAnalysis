@@ -81,9 +81,7 @@ let _expandMethodLocsInClass (host, hostName, hostPath) (locs: LocInfo list) =
                 if (inClassBody)
                 then
                     if (List.contains currentMethod methodNames |> not)
-                    then
-                        // printfn "mm %s %s" currentMethod usedMethodName                        
-                        newLocs <- { hostLoc = currentMethod; targetLocs = Map.find usedMethodName seedMap} :: newLocs                               
+                    then newLocs <- { hostLoc = currentMethod; targetLocs = Map.find usedMethodName seedMap} :: newLocs                               
             | _ -> ())        
         match newLocs with
         | [] -> accLocs
@@ -198,7 +196,6 @@ let _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, 
     instanceNameOption    
    
 let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, hostPath) =
-    // printfn "-- %s %s" targetName hostName
     let lines = File'.toFile'(hostPath : string).getLines() 
     let instanceNameOption = _discoverInstanceForClass (target, targetName, targetPath) (host, hostName, hostPath)
     match instanceNameOption with
@@ -218,7 +215,6 @@ let _discoverClassUsedInClass (target, targetName, targetPath) (host, hostName, 
                 if (inClassBody)
                 then locs' <- (currentMethod, invocationName) :: locs'           
             | _ -> ())
-        // printfn "++ %A" locs'
         locs'    
 
 let discoverDcUsedInDc (target : DomainClass) (host: DomainClass) =

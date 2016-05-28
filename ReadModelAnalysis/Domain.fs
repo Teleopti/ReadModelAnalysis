@@ -84,8 +84,7 @@ let traceNextUsage (usage : Usage) =
         let availables = locs |> List.map (fun loc -> loc.hostLoc ) 
         locsNext 
         |> List.collect (fun loc -> loc.targetLocs)
-        |> List.exists (fun x -> List.contains x availables) 
-               
+        |> List.exists (fun x -> List.contains x availables)          
     match usage with
     | RmUsedInSp { target = target; host = host; locs = locs } ->
         (function

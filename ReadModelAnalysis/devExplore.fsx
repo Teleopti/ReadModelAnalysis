@@ -50,4 +50,3 @@ let testTraceUsageChainsOfRm =
         let snapshot = closureOfWc configValues [rm] []
         startingUsageOfRm rm snapshot.usages
         |> List.collect (fun u -> traceUsageChain u snapshot.usages)
-
