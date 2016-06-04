@@ -19,6 +19,11 @@ let testInputOfIcs =
         let rm = ReadModel "PersonScheduleDay"
         inputOfIcs configValues [rm] |> getStateTargets
 
+let testInputOfIcs2 =
+    fun _ ->
+        let rm = ReadModel "PersonScheduleProjectionLoadTime"
+        inputOfIcs configValues [rm] |> getStateTargets
+
 let testEquilibrateIcEhcDc =
     fun _ ->
         let rm = ReadModel "ScheduleProjectionReadOnly"
